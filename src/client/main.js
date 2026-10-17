@@ -157,6 +157,24 @@ function showResult(res) {
   app.append(box);
 }
 
+// 縦向きの案内（タッチ端末で、実際の表示領域が縦長のときだけ）
+function setupRotateHint() {
+  if (!matchMedia('(pointer: coarse)').matches) return;
+  let dismissed = false;
+  const el = h('div', { class: 'rotate-hint' }, h('div', { class: 'ph' }), h('div', {}, 'スマートフォンを', h('b', {}, '横向き'), 'にしてプレイしてください'),
+    h('button', { class: 'btn small', onclick: () => { dismissed = true; update(); } }, 'このまま続ける'));
+  document.body.append(el);
+  const update = () => {
+    const w = window.visualViewport?.width || innerWidth, hh = window.visualViewport?.height || innerHeight;
+    el.classList.toggle('show', !dismissed && hh > w * 1.1);
+  };
+  addEventListener('resize', update);
+  addEventListener('orientationchange', () => setTimeout(update, 300));
+  window.visualViewport?.addEventListener('resize', update);
+  update();
+}
+setupRotateHint();
+
 // ブラウザの戻る・リロードで進行が消えないよう保存
 addEventListener('beforeunload', () => PF.save());
 titleScreen();

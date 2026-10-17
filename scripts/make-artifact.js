@@ -18,7 +18,6 @@ const html = `<title>RAIDER BATTLE</title>
 ${safeCss}
 </style>
 <div id="app"></div>
-<div class="rotate-hint"><div class="ph"></div><div>スマートフォンを<b>横向き</b>にしてプレイしてください</div></div>
 <script type="module">
 ${safeJs}
 </script>

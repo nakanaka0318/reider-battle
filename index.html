@@ -16,7 +16,13 @@
 </head>
 <body>
   <div id="app"></div>
-  <div class="rotate-hint"><div class="ph"></div><div>スマートフォンを<b>横向き</b>にしてプレイしてください</div></div>
   <script type="module" src="/src/client/main.js"></script>
+  <script>
+    // ビルドしていないソースがそのまま公開された場合（GitHub Pages の設定ミスなど）の案内
+    setTimeout(function () {
+      var app = document.getElementById('app');
+      if (app && !app.firstChild) app.innerHTML = '<div style="font:15px/1.8 sans-serif;color:#ddd;background:#111;padding:24px;max-width:640px;margin:40px auto">ゲームを読み込めませんでした。<br>GitHub Pages で公開している場合は、リポジトリの <b>Settings → Pages → Build and deployment → Source</b> を「<b>GitHub Actions</b>」に変更してください（ビルド済みのゲームが公開されます）。</div>';
+    }, 6000);
+  </script>
 </body>
 </html>
