@@ -112,11 +112,37 @@ function settingsModal() {
   ), [{ text: '閉じる' }]);
 }
 
+// 公開されている最新版と違うページを開いたままなら true（確認できないときは false）
+async function isOutdated() {
+  if (typeof __BUILD_ID__ === 'undefined' || location.protocol === 'file:') return false;
+  try {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 2500);
+    const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store', signal: ctl.signal });
+    clearTimeout(timer);
+    if (!r.ok) return false;
+    const v = await r.json();
+    return !!v.id && v.id !== __BUILD_ID__;
+  } catch { return false; }
+}
+function reloadLatest(msg) {
+  clear();
+  app.append(h('div', { class: 'loading' }, h('div', { class: 'tip' }, msg)));
+  setTimeout(() => location.replace(location.pathname + '?v=' + Date.now()), 600);
+}
+
 async function deploy(opts) {
   const P = PF.profile();
   const lo = P.loadout;
   if (!lo.equip.primary && !lo.equip.secondary && !lo.equip.holster) {
     if (!(await confirmBox('出撃確認', '武器を持たずに出撃しますか？', '出撃する'))) return;
+  }
+  // 新しいバージョンが公開されていたら、出撃前に読み直す（古いゲーム本体がキャッシュに残っていることがある）
+  let recent = false;
+  try { recent = Date.now() - Number(sessionStorage.getItem('rb-ver-reload') || 0) < 120000; } catch { /* noop */ }
+  if (!recent && await isOutdated()) {
+    try { sessionStorage.setItem('rb-ver-reload', String(Date.now())); } catch { /* noop */ }
+    PF.save(); reloadLatest('新しいバージョンがあります。最新版を読み込み直しています…'); return;
   }
   const loadout = PF.prepareRaidLoadout();
   clear();
