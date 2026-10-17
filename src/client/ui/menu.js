@@ -518,7 +518,7 @@ export class Menu {
         h('div', { class: 'row' }, h('h3', {}, q.name), h('span', { class: 'grow' }), h('span', { class: 'badge ' + st }, { active: '進行中', available: '受注可能', done: '完了', locked: 'ロック' }[st])),
         h('div', { class: 'qt', style: { color: tr.color } }, `依頼者: ${tr.name}（${tr.title}）`),
         h('div', { class: 'mini', style: { margin: '6px 0' } }, q.desc),
-        q.obj.map((o, i) => {
+        ...q.obj.map((o, i) => {
           const pr = st === 'active' ? PF.objProgress(q, i) : st === 'done' ? o.count : 0;
           return h('div', { class: 'obj' + (pr >= o.count ? ' done' : '') }, h('span', {}, (pr >= o.count ? '✔ ' : '◻ ') + o.text), h('span', { class: 'num' }, o.type === 'loot_value' ? (pr >= o.count ? '達成' : '') : `${fmt(pr)}/${fmt(o.count)}`));
         }),
@@ -527,7 +527,7 @@ export class Menu {
         h('div', { class: 'row', style: { marginTop: '8px' } },
           st === 'available' ? h('button', { class: 'btn small primary', onclick: () => { PF.acceptQuest(q); toast(`タスク「${q.name}」を受注した`); this.build(); } }, '受注') : null,
           st === 'active' ? h('button', { class: 'btn small primary', disabled: !PF.questComplete(q), onclick: () => { if (PF.turnInQuest(q)) { toast(`タスク「${q.name}」完了！`, 'good'); this.build(); } } }, '報告・納品') : null,
-          q.obj.some((o) => o.type === 'find') && st === 'active' ? h('span', { class: 'mini' }, '※納品はレイド内で入手（✔印）したアイテムのみ') : null),
+          q.obj.some((o) => o.type === 'find') && st === 'active' ? h('span', { class: 'mini' }, '※納品できるのはレイド内で入手（✔印）した物だけ。倉庫と装備のどちらに入っていても数える') : null),
       );
       grid.append(card);
     }

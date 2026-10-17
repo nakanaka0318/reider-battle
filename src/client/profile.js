@@ -205,22 +205,22 @@ export function depositCredits() {
 }
 
 // ---------------------------------------------------------------- 所持数（倉庫内）
-export function countInStash(id, firOnly = false) {
+export function countInStash(id, firOnly = false, root = P.stash) {
   let n = 0;
-  for (const it of allItems(P.stash, true)) if (it.id === id && (!firOnly || it.fir)) n += ITEMS[id].stack > 1 ? it.count : 1;
+  for (const it of allItems(root, true)) if (it.id === id && (!firOnly || it.fir)) n += ITEMS[id].stack > 1 ? it.count : 1;
   return n;
 }
-export function takeFromStash(id, n, firOnly = false) {
+export function takeFromStash(id, n, firOnly = false, root = P.stash) {
   let left = n;
-  const items = allItems(P.stash, true).filter((it) => it.id === id && (!firOnly || it.fir));
+  const items = allItems(root, true).filter((it) => it.id === id && (!firOnly || it.fir));
   for (const it of items) {
     if (left <= 0) break;
     const def = ITEMS[id];
     if (def.stack > 1) {
       const k = Math.min(left, it.count);
       it.count -= k; left -= k;
-      if (it.count <= 0) removeItem(P.stash, it.uid);
-    } else { removeItem(P.stash, it.uid); left--; }
+      if (it.count <= 0) removeItem(root, it.uid);
+    } else { removeItem(root, it.uid); left--; }
   }
   return n - left;
 }
@@ -300,14 +300,15 @@ export function acceptQuest(q) {
 export function objProgress(q, i) {
   const st = P.quests[q.id];
   const o = q.obj[i];
-  if (o.type === 'find') return Math.min(o.count, countInStash(o.item, true));
+  // 納品は倉庫と装備（バッグの中など）の両方にある ✔ 印のアイテムを数える
+  if (o.type === 'find') return Math.min(o.count, countInStash(o.item, true) + countInStash(o.item, true, P.loadout));
   return st?.progress?.[i] || 0;
 }
 export function questComplete(q) { return q.obj.every((o, i) => objProgress(q, i) >= o.count); }
 export function turnInQuest(q) {
   const st = P.quests[q.id];
   if (!st || st.state !== 'active' || !questComplete(q)) return false;
-  q.obj.forEach((o) => { if (o.type === 'find') takeFromStash(o.item, o.count, true); });
+  q.obj.forEach((o) => { if (o.type === 'find') { const got = takeFromStash(o.item, o.count, true); if (got < o.count) takeFromStash(o.item, o.count - got, true, P.loadout); } });
   st.state = 'done';
   const r = q.reward;
   P.money += r.money || 0;
