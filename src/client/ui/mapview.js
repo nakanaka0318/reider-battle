@@ -48,6 +48,23 @@ function baseImage() {
   return cv;
 }
 
+// 高価な戦利品が出やすい場所（コンテナ種別と施錠された部屋）
+export const HOTSPOT_TYPES = {
+  safe: { label: '金庫', color: '#f0c040' },
+  lab_case: { label: '研究用ケース', color: '#40d0f0' },
+  arc_cache: { label: 'ARC キャッシュ', color: '#4080ff' },
+  weapon_box: { label: '武器ケース', color: '#f05040' },
+  supply_drop: { label: '補給物資', color: '#60f070' },
+  locked: { label: '施錠された部屋', color: '#c060f0' },
+};
+export function mapHotspots() {
+  const M = getMap();
+  const out = [];
+  for (const c of M.containers) if (HOTSPOT_TYPES[c.type]) out.push({ x: c.x, z: c.z, type: c.type, color: HOTSPOT_TYPES[c.type].color, big: c.type === 'supply_drop' });
+  for (const d of M.doors) if (d.locked) out.push({ x: d.x, z: d.z, type: 'locked', color: HOTSPOT_TYPES.locked.color, big: true, name: d.name, key: d.locked });
+  return out;
+}
+
 export function drawMapPreview(cv, opts = {}) {
   const M = getMap();
   const g = cv.getContext('2d');
@@ -69,6 +86,15 @@ export function drawMapPreview(cv, opts = {}) {
     const [x, y] = P(p.x, p.z);
     g.fillStyle = 'rgba(0,0,0,.6)'; g.fillText(p.name, x + 1, y + 1);
     g.fillStyle = '#e8e2d0'; g.fillText(p.name, x, y);
+  }
+  // 高価な物が出やすい場所
+  for (const s of opts.hotspots || []) {
+    const [x, y] = P(s.x, s.z);
+    g.save(); g.translate(x, y); g.rotate(Math.PI / 4);
+    g.fillStyle = s.color; g.strokeStyle = '#000'; g.lineWidth = 1.2;
+    const r = s.big ? 5 : 3.5;
+    g.fillRect(-r, -r, r * 2, r * 2); g.strokeRect(-r, -r, r * 2, r * 2);
+    g.restore();
   }
   // 脱出地点
   const exs = opts.extracts || M.extracts;

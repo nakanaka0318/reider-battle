@@ -409,3 +409,20 @@ input.search { background: #111; border: 1px solid var(--line2); color: var(--te
 }
 
 .crosshair.hot i { background: #ff4a3a; }
+
+/* 上部バーが折り返さないように */
+.topbar { overflow: hidden; }
+.topbar .brand, .tab, .stat-chip, .stat-chip b, .topbar .btn { white-space: nowrap; }
+.topbar .brand { flex-shrink: 0; }
+.tabs { flex-shrink: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.topbar .spacer { min-width: 4px; }
+@media (max-width: 1400px) {
+  .stat-chip.total { display: none; }
+  .topbar .btn .lbl { display: none; }
+  .tab { padding: 0 12px; }
+}
+@media (max-width: 1100px) {
+  .topbar .brand span { display: none; }
+  .tab { padding: 0 8px; font-size: 13px; }
+}

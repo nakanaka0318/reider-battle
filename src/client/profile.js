@@ -14,19 +14,65 @@ function changed() { save(); for (const fn of listeners) fn(P); }
 
 export function profile() { return P; }
 
-export function loadProfile() {
+// ---------------------------------------------------------------- 複数プレイヤー（セーブスロット）
+const INDEX = 'rb-profiles-v1', CUR = 'rb-current-v1';
+const slotKey = (id) => 'rb-profile-' + id;
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { console.warn('save failed', e); return false; } }
+function lsDel(k) { try { localStorage.removeItem(k); } catch { /* noop */ } }
+function readIndex() { try { return JSON.parse(lsGet(INDEX) || '[]'); } catch { return []; } }
+function writeIndex(list) { lsSet(INDEX, JSON.stringify(list)); }
+function newId() { return Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
+
+// 旧形式（1 人分）のセーブを 1 つ目のスロットへ移す
+function migrateLegacy() {
+  const raw = lsGet(KEY);
+  if (!raw) return;
   try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) { P = JSON.parse(raw); migrate(P); return P; }
-  } catch (e) { console.warn('profile load failed', e); }
+    const p = JSON.parse(raw);
+    p.id = p.id || newId();
+    lsSet(slotKey(p.id), JSON.stringify(p));
+    const list = readIndex();
+    if (!list.some((e) => e.id === p.id)) list.push(summary(p));
+    writeIndex(list);
+    if (!lsGet(CUR)) lsSet(CUR, p.id);
+    lsDel(KEY);
+  } catch (e) { console.warn('legacy migrate failed', e); }
+}
+function summary(p) { return { id: p.id, name: p.name, level: levelFromXp(p.xp || 0), money: p.money || 0, raids: p.stats?.raids || 0, updated: Date.now() }; }
+
+export function listProfiles() { migrateLegacy(); return readIndex().sort((a, b) => b.updated - a.updated); }
+export function currentId() { return P?.id || lsGet(CUR); }
+
+export function loadProfile(id) {
+  migrateLegacy();
+  id = id || lsGet(CUR);
   P = null;
+  if (!id) return null;
+  try {
+    const raw = lsGet(slotKey(id));
+    if (raw) { P = JSON.parse(raw); P.id = id; migrate(P); lsSet(CUR, id); return P; }
+  } catch (e) { console.warn('profile load failed', e); }
   return null;
 }
 export function save() {
   if (!P) return;
-  try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) { console.warn('save failed', e); }
+  if (!P.id) P.id = newId();
+  lsSet(slotKey(P.id), JSON.stringify(P));
+  lsSet(CUR, P.id);
+  const list = readIndex().filter((e) => e.id !== P.id);
+  list.push(summary(P));
+  writeIndex(list);
 }
-export function resetProfile() { try { localStorage.removeItem(KEY); } catch { /* noop */ } P = null; }
+export function switchProfile(id) { save(); return loadProfile(id); }
+export function deleteProfile(id) {
+  lsDel(slotKey(id));
+  writeIndex(readIndex().filter((e) => e.id !== id));
+  if (lsGet(CUR) === id) lsDel(CUR);
+  if (P?.id === id) P = null;
+}
+// 現在のプレイヤーを消して最初から（スロットごと削除）
+export function resetProfile() { if (P?.id) deleteProfile(P.id); else lsDel(CUR); P = null; }
 
 function migrate(p) {
   p.settings ||= defaultSettings();
@@ -78,12 +124,14 @@ export function newProfile(name) {
   give('gr_f1'); give('gr_smoke');
   give('sight_rd1'); give('grip_vert'); give('mz_hider'); give('tac_light');
   give('duct_tape'); give('bolts', { count: 6 }); give('gunpowder_pack');
+  const prevSettings = P?.settings;
   P = {
-    version: 1, name: name || 'レイダー', created: Date.now(), xp: 0, money: 250000,
+    id: newId(), version: 1, name: name || 'レイダー', created: Date.now(), xp: 0, money: 250000,
     loadout, stash, settings: defaultSettings(), hideout: { workbench: 1, medstation: 1, kitchen: 0, tailor: 0, server: 0, arc_lab: 0, stash: 0 },
     crafts: [], quests: {}, stats: { raids: 0, survived: 0, deaths: 0, mia: 0, kills: 0, pmcKills: 0, scavKills: 0, machineKills: 0, bossKills: 0, lootValue: 0, totalEarned: 0 },
     health: { energy: 100, hydration: 100 }, history: [],
   };
+  if (prevSettings) P.settings = { ...P.settings, ...prevSettings }; // 操作設定は引き継ぐ
   changed();
   return P;
 }
@@ -445,4 +493,94 @@ export function autoEquip(mode = 'fill') {
   }
   changed();
   return log;
+}
+
+// ---------------------------------------------------------------- 自動購入して編成
+// 倉庫の物で埋めたあと、空いているスロットと足りない補給品をトレーダーから予算内で買って装備する
+export function autoBuyLoadout(budget) {
+  budget = Math.min(budget, P.money);
+  const startMoney = P.money;
+  const bought = [];
+  autoEquip('fill');
+  const stock = new Map();
+  for (const t of TRADERS) for (const d of traderStock(t)) stock.set(d.id, d);
+  const defs = [...stock.values()];
+  const buy = (d) => { const r = buyItem(d); if (r.ok) bought.push(d.name); return r.ok; };
+  const lo = P.loadout;
+  // スロットごとの予算配分
+  const W = { primary: 34, armor: 20, helmet: 9, rig: 8, backpack: 7, holster: 5 };
+  const empty = Object.keys(W).filter((s) => !lo.equip[s]);
+  const reserve = Math.round(budget * 0.18); // 弾薬と医薬品用
+  const tot = empty.reduce((s, k) => s + W[k], 0) || 1;
+  let carry = 0;
+  const ammoCost = (wd) => {
+    const a = defs.filter((d) => d.cat === 'ammo' && d.ammo.caliber === wd.weapon.caliber).sort((x, y) => buyPrice(x) - buyPrice(y))[0];
+    return a ? buyPrice(a) * Math.ceil((wd.weapon.mag * 3) / buyPack(a)) : Infinity;
+  };
+  const pickers = {
+    primary: (d) => d.cat === 'weapon' && d.weapon.class !== 'pistol' && d.weapon.caliber !== 'arc' && ammoCost(d) < Infinity,
+    holster: (d) => d.cat === 'weapon' && d.weapon.class === 'pistol' && ammoCost(d) < Infinity,
+    armor: (d) => d.cat === 'armor' && !(lo.equip.rig && ITEMS[lo.equip.rig.id].armor),
+    helmet: (d) => d.cat === 'helmet',
+    rig: (d) => d.cat === 'rig' && !d.armor,
+    backpack: (d) => d.cat === 'backpack',
+  };
+  const score = (slot, d) => {
+    if (d.weapon) return d.value;
+    if (d.armor) return d.armor.cls * 1000 + d.armor.dur - d.weight * 10;
+    return (d.grids || []).reduce((s, [w, h]) => s + w * h, 0) * 100 - d.value / 1000;
+  };
+  for (const slot of ['primary', 'armor', 'helmet', 'rig', 'backpack', 'holster']) {
+    if (!empty.includes(slot)) continue;
+    const allot = Math.floor((budget - reserve) * W[slot] / tot) + carry;
+    const extra = (d) => (d.weapon ? ammoCost(d) : 0);
+    let cands = defs.filter(pickers[slot]).filter((d) => buyPrice(d) + extra(d) <= allot && buyPrice(d) <= P.money);
+    cands.sort((a, b) => score(slot, b) - score(slot, a));
+    let d = cands[0];
+    // 武器が 1 つもないときは、予算の範囲で一番安い武器（ピストル含む）を必ず買う
+    if (!d && slot === 'primary' && !lo.equip.holster && !lo.equip.secondary) {
+      cands = defs.filter((x) => x.cat === 'weapon' && x.weapon.caliber !== 'arc' && ammoCost(x) < Infinity && buyPrice(x) + ammoCost(x) <= Math.min(budget, P.money));
+      cands.sort((a, b) => buyPrice(a) - buyPrice(b));
+      d = cands[0];
+    }
+    // 武器は弾薬代を残しておく（弾は後でまとめて買う）
+    if (d && buy(d)) carry = allot - buyPrice(d) - extra(d);
+    else carry = allot;
+    carry = Math.max(0, carry);
+    autoEquip('fill');
+  }
+  // 弾薬：装填分＋予備 2 マガジン分を確保
+  const spentSoFar = () => startMoney - P.money;
+  for (const s of ['primary', 'secondary', 'holster']) {
+    const w = lo.equip[s];
+    if (!w?.mag) continue;
+    const wd = ITEMS[w.id];
+    const want = weaponStats(w).capacity * 3;
+    const have = (w.mag.count || 0) + Object.values(countAmmo(lo, wd.weapon.caliber)).reduce((a, b) => a + b, 0) + Object.values(countAmmo({ equip: {}, pockets: P.stash.grid }, wd.weapon.caliber)).reduce((a, b) => a + b, 0);
+    let need = want - have;
+    const ammos = defs.filter((d) => d.cat === 'ammo' && d.ammo.caliber === wd.weapon.caliber);
+    // 予算に余裕があれば貫通力の高い弾
+    ammos.sort((a, b) => b.ammo.pen - a.ammo.pen);
+    const room = budget - spentSoFar();
+    const a = ammos.find((d) => buyPrice(d) * Math.ceil(Math.max(need, 1) / buyPack(d)) <= room * 0.6) || ammos[ammos.length - 1];
+    while (need > 0 && a && buyPrice(a) <= P.money && spentSoFar() + buyPrice(a) <= budget) { if (!buy(a)) break; need -= buyPack(a); }
+  }
+  // 医薬品・水（持っていない役割だけ、安い物）
+  const all = () => [...allItems(lo), ...allItems(P.stash)].map((i) => ITEMS[i.id]);
+  const roles = [
+    (d) => d.cat === 'med' && d.med.bleed && !d.med.heal,
+    (d) => d.cat === 'med' && d.med.heavy,
+    (d) => d.cat === 'med' && d.med.heal > 0,
+    (d) => d.cat === 'med' && d.med.fracture,
+    (d) => d.cat === 'med' && d.med.pain && !d.med.heal,
+    (d) => d.cat === 'food' && d.med.hydration > 20,
+  ];
+  for (const f of roles) {
+    if (all().some(f)) continue;
+    const d = defs.filter(f).sort((a, b) => buyPrice(a) - buyPrice(b))[0];
+    if (d && spentSoFar() + buyPrice(d) <= budget) buy(d);
+  }
+  const log = autoEquip('fill');
+  changed();
+  return { spent: startMoney - P.money, bought, log };
 }

@@ -10,11 +10,13 @@ import * as PF from '../profile.js';
 import { getItemIcon } from '../icons.js';
 import { drawMapPreview } from './mapview.js';
 import { drawPortrait } from './portrait.js';
+import { buildHintsPage } from './hints.js';
 
 const OFFLINE_ONLY = !!import.meta.env?.VITE_OFFLINE_ONLY;
 
 export class Menu {
-  constructor(root, { onDeploy, onSettings }) {
+  constructor(root, { onDeploy, onSettings, onPlayers }) {
+    this.onPlayers = onPlayers;
     this.root = root;
     this.onDeploy = onDeploy;
     this.onSettings = onSettings;
@@ -57,7 +59,7 @@ export class Menu {
   build() {
     const P = PF.profile();
     this.root.innerHTML = '';
-    const tabs = [['stash', '倉庫・装備'], ['traders', 'トレーダー'], ['hideout', 'ハイドアウト'], ['quests', 'タスク'], ['deploy', '出撃'], ['records', '記録']];
+    const tabs = [['stash', '倉庫・装備'], ['traders', 'トレーダー'], ['hideout', 'ハイドアウト'], ['quests', 'タスク'], ['deploy', '出撃'], ['hints', 'ヒント'], ['records', '記録']];
     this.topEls = {
       money: h('b', { class: 'money' }), level: h('b', {}), xp: h('i', {}), value: h('b', {}),
     };
@@ -65,16 +67,17 @@ export class Menu {
       h('div', { class: 'brand' }, 'RAIDER', h('span', {}, ' BATTLE')),
       h('div', { class: 'tabs' }, tabs.map(([id, name]) => h('div', { class: 'tab' + (this.tab === id ? ' active' : ''), onclick: () => { this.tab = id; this.build(); } }, name))),
       h('div', { class: 'spacer' }),
-      h('div', { class: 'stat-chip' }, '総資産', this.topEls.value),
+      h('div', { class: 'stat-chip total' }, '総資産', this.topEls.value),
       h('div', { class: 'stat-chip' }, P.name + ' ・ レベル', this.topEls.level, h('div', { class: 'xpbar' }, this.topEls.xp)),
       h('div', { class: 'stat-chip' }, 'クレジット', this.topEls.money),
-      h('button', { class: 'btn small', onclick: () => this.onSettings() }, '⚙ 設定'),
+      h('button', { class: 'btn small', title: 'プレイヤー', onclick: () => this.onPlayers() }, '👤', h('span', { class: 'lbl' }, ' プレイヤー')),
+      h('button', { class: 'btn small', title: '設定', onclick: () => this.onSettings() }, '⚙', h('span', { class: 'lbl' }, ' 設定')),
     );
     this.content = h('div', { class: 'content' });
     this.root.append(h('div', { class: 'menu' }, top, this.content));
     this.updateTop();
     this.inv.mounts = [];
-    const page = { stash: () => this.pageStash(), traders: () => this.pageTraders(), hideout: () => this.pageHideout(), quests: () => this.pageQuests(), deploy: () => this.pageDeploy(), records: () => this.pageRecords() }[this.tab];
+    const page = { stash: () => this.pageStash(), traders: () => this.pageTraders(), hideout: () => this.pageHideout(), quests: () => this.pageQuests(), deploy: () => this.pageDeploy(), hints: () => buildHintsPage(), records: () => this.pageRecords() }[this.tab];
     this.content.append(page());
   }
 
@@ -173,10 +176,40 @@ export class Menu {
       this.inv.refresh(); this.refreshSide();
       toast(log.length ? `装備した：${log.join('、')}` : '倉庫に使える装備がない', log.length ? 'good' : 'warn');
     };
-    modal('おまかせ装備', h('div', { style: { maxWidth: '440px', lineHeight: 1.7 } },
-      '倉庫の中から装備を自動で選んで装着し、武器に弾を込め、予備弾薬・医薬品・水・手榴弾をリグとポケットに詰めます。',
-      h('div', { class: 'mini', style: { marginTop: '6px' } }, '「最強に入れ替え」は今の装備より良い物があれば交換します（外した装備は倉庫へ）。死ぬと失うので注意。')),
-    [{ text: '空きスロットを埋める', fn: () => run('fill') }, { text: '最強に入れ替え', cls: 'primary', fn: () => run('best') }]);
+    const P = PF.profile();
+    const budgets = [50000, 100000, 200000, 400000, 800000].filter((b) => b < P.money);
+    budgets.push(P.money);
+    let budget = budgets[Math.min(1, budgets.length - 1)];
+    const chips = h('div', { class: 'opts', style: { margin: '6px 0' } });
+    const drawChips = () => {
+      chips.innerHTML = '';
+      for (const b of budgets) chips.append(h('div', { class: 'opt' + (b === budget ? ' active' : ''), style: { minWidth: '70px', textAlign: 'center' }, onclick: () => { budget = b; drawChips(); } }, h('b', {}, b === P.money ? '全額' : fmt(b / 10000) + '万'), h('small', {}, fmt(b) + ' C')));
+    };
+    drawChips();
+    const m = modal('おまかせ装備', h('div', { style: { maxWidth: '480px', lineHeight: 1.7 } },
+      h('b', {}, '倉庫の物で編成'),
+      h('div', {}, '倉庫から装備を選んで装着し、武器に弾を込め、予備弾薬・医薬品・水・手榴弾をリグとポケットに詰めます。'),
+      h('div', { class: 'mini' }, '「最強に入れ替え」は今の装備より良い物があれば交換します（外した装備は倉庫へ）。死ぬと失うので注意。'),
+      h('div', { class: 'row', style: { gap: '6px', margin: '8px 0 14px' } },
+        h('button', { class: 'btn', onclick: () => { run('fill'); m.close(); } }, '空きスロットを埋める'),
+        h('button', { class: 'btn primary', onclick: () => { run('best'); m.close(); } }, '最強に入れ替え')),
+      h('div', { class: 'sep' }),
+      h('b', {}, '足りない物を買って編成（自動購入）'),
+      h('div', {}, '倉庫の物を使ったうえで、空いているスロットと足りない弾薬・医薬品をトレーダーから予算内で買って装備します。'),
+      h('div', { class: 'mini' }, `所持金 ${fmt(P.money)} C ・ 予算`),
+      chips,
+      h('button', { class: 'btn primary', style: { width: '100%' }, onclick: () => {
+        const r = PF.autoBuyLoadout(budget);
+        this.inv.refresh(); this.refreshSide(); this.updateTop();
+        m.close();
+        if (r.bought.length) toast(`${fmt(r.spent)} C で購入：${r.bought.join('、')}`, 'good');
+        else {
+          const e = PF.profile().loadout.equip;
+          const full = ['primary', 'armor', 'helmet', 'rig', 'backpack'].every((k) => e[k]);
+          toast(full ? '装備・弾薬・医薬品はすでにそろっていて、買う物はなかった' : '予算内で買える物がなかった（予算を増やすか、レベルを上げると買える物が増える）', full ? 'good' : 'warn');
+        }
+      } }, '予算内で購入して編成する'),
+    ), []);
   }
 
   ctxItems(ref, it) {
@@ -559,7 +592,7 @@ export class Menu {
           h('span', { style: { color: r.survived ? '#8ad070' : '#d24a3a', fontWeight: 700 } }, r.survived ? '生還' : r.mia ? 'MIA' : '死亡'),
           h('span', {}, r.survived ? `脱出: ${r.ex}` : `${r.killer || ''}`, h('span', { class: 'mini' }, `  ・ キル ${r.kills} ・ +${fmt(r.xp)} XP`)),
           h('span', { class: 'num', style: { color: r.gained >= 0 ? '#8ad070' : '#d24a3a' } }, (r.gained >= 0 ? '+' : '') + fmt(r.gained) + ' C'))) : h('div', { class: 'mini' }, 'まだレイドの記録がない'))),
-      h('div', { style: { marginTop: '14px' } }, h('button', { class: 'btn danger small', onclick: async () => { if (await confirmBox('プロフィール削除', '全ての進行状況を削除して最初からやり直しますか？', '削除')) { PF.resetProfile(); location.reload(); } } }, 'プロフィールをリセット')),
+      h('div', { style: { marginTop: '14px' } }, h('button', { class: 'btn small', onclick: () => this.onPlayers() }, 'プレイヤー切り替え ／ 最初からやり直す')),
     );
   }
 }

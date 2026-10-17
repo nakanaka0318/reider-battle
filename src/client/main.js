@@ -5,6 +5,7 @@ import * as PF from './profile.js';
 import { ITEMS } from '../shared/items.js';
 import { allItems } from '../shared/inventory.js';
 import { music } from './music.js';
+import { playersModal } from './ui/players.js';
 
 const app = document.getElementById('app');
 let menu = null;
@@ -39,6 +40,7 @@ function titleScreen() {
     h('div', { class: 'title-menu' },
       P ? h('div', { style: { color: '#bbb', fontSize: '14px' } }, `おかえり、${P.name}（レベル ${PF.level()}・${fmt(P.money)} C）`) : nameIn,
       h('button', { class: 'btn primary big', onclick: start }, P ? '続ける' : 'はじめる'),
+      PF.listProfiles().length ? h('button', { class: 'btn', onclick: () => playersModal(() => (PF.profile() ? showMenu() : titleScreen())) }, 'プレイヤー切り替え ／ 最初から') : null,
       h('button', { class: 'btn', onclick: () => showHelp() }, '遊び方'),
     ),
     h('div', { class: 'title-foot' }, '© RAIDER BATTLE — WebGL / three.js ・ 全てのグラフィックとサウンドはプロシージャル生成'),
@@ -83,7 +85,7 @@ function showMenu() {
   clear();
   music.setVolume(PF.profile().settings.music ?? 0.4);
   music.play();
-  menu = new Menu(app, { onDeploy: deploy, onSettings: settingsModal });
+  menu = new Menu(app, { onDeploy: deploy, onSettings: settingsModal, onPlayers: () => playersModal(() => (PF.profile() ? showMenu() : titleScreen())) });
 }
 
 function settingsModal() {

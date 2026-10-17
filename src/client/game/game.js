@@ -11,7 +11,7 @@ import { allItems, countAmmo, listGrids } from '../../shared/inventory.js';
 import { World } from '../../shared/world.js';
 import { angleDiff, dirFromYawPitch } from '../../shared/math.js';
 import { PARTS } from '../../shared/combat.js';
-import { getMap, drawMapPreview } from '../ui/mapview.js';
+import { getMap, drawMapPreview, mapHotspots } from '../ui/mapview.js';
 import { helpKeys } from '../ui/menu.js';
 import { buildWorld3D, buildDoors, makeGlowTexture } from './world3d.js';
 import { setAniso } from './textures.js';
@@ -799,7 +799,7 @@ export class Game {
     this.mapOpen = h('div', { class: 'pause' }, h('div', { class: 'col', style: { alignItems: 'center' } }, cv, h('div', { class: 'mini' }, IS_TOUCH ? 'タップで閉じる ・ 黄色の矢印が現在地' : 'M で閉じる ・ 黄色の矢印が現在地')));
     this.mapOpen.addEventListener('click', () => { if (this.mapOpen) { this.mapOpen.remove(); this.mapOpen = null; this.input.lock(); } });
     this.root.append(this.mapOpen);
-    drawMapPreview(cv, { player: { x: this.player.pos.x, z: this.player.pos.z, yaw: this.player.yaw }, extracts: this.extracts });
+    drawMapPreview(cv, { player: { x: this.player.pos.x, z: this.player.pos.z, yaw: this.player.yaw }, extracts: this.extracts, hotspots: mapHotspots() });
     this.input.unlock();
     const onKey = (e) => { if (e.code === 'KeyM' || e.code === 'Escape') { removeEventListener('keydown', onKey); if (this.mapOpen) { this.mapOpen.remove(); this.mapOpen = null; this.input.lock(); } } };
     setTimeout(() => addEventListener('keydown', onKey), 0);
@@ -1012,6 +1012,11 @@ const TIPS = [
   '夜のレイドはライト（T キー）が必須。ただし敵にも見つかりやすくなる。',
   'ボルトアクションのスナイパーは、1 発で勝負が決まる。',
   'ハイドアウトでは拾ったガラクタから弾薬や医薬品を作れる。',
+  '金庫と施錠された部屋は高価な物の宝庫。メニューの「ヒント」でマップ上の場所を確認できる。',
+  '1 マス当たりの価値が高い宝石・金貨・GPU を優先して持ち帰ろう。',
+  '研究所のレッド区画には金庫と研究用ケースが並ぶ。レッドキーカードが必要。',
+  '司令官グロムを倒すと武器庫の鍵が手に入る。',
+  'ARC 機械の残骸には数十万 C のパーツが入っていることがある。',
 ];
 function randomTip() { return 'TIP: ' + TIPS[Math.floor(Math.random() * TIPS.length)]; }
 void listGrids; void MACHINES;
