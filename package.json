@@ -1,0 +1,21 @@
+{
+  "name": "raider-battle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ブラウザで遊べる3Dエクストラクション・シューター (PvPvE / オールNPCモード)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "server": "node server/server.js",
+    "start": "vite build && node server/server.js",
+    "check": "node scripts/check.js"
+  },
+  "dependencies": {
+    "three": "0.170.0",
+    "ws": "8.18.0"
+  },
+  "devDependencies": {
+    "vite": "6.0.7"
+  }
+}
