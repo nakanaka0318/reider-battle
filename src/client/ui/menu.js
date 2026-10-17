@@ -12,6 +12,7 @@ import { drawMapPreview } from './mapview.js';
 import { drawPortrait } from './portrait.js';
 import { buildHintsPage } from './hints.js';
 import { favoritesModal } from './favorites.js';
+import { sellModal } from './sellmodal.js';
 
 const OFFLINE_ONLY = !!import.meta.env?.VITE_OFFLINE_ONLY;
 
@@ -105,6 +106,7 @@ export class Menu {
         h('div', { class: 'inv-col', style: { flex: '0 0 auto' } },
           h('div', { class: 'panel', style: { display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '100%' } },
             h('div', { class: 'panel-h' }, '倉庫', h('span', { class: 'sub', id: 'stash-info' }),
+              h('button', { class: 'btn small primary', onclick: () => this.sellModal() }, 'まとめて売却'),
               h('button', { class: 'btn small', onclick: () => this.sortStash() }, '整列'),
               h('button', { class: 'btn small', onclick: () => { const n = PF.depositCredits(); PF.commit(); this.inv.refresh(); toast(n ? `${fmt(n)} C を入金した` : '入金できるクレジットはない'); } }, '入金')),
             h('div', { class: 'inv-scroll', style: { padding: '8px' } }, this.inv.gridRoot('stash')),
@@ -169,6 +171,10 @@ export class Menu {
     for (const it of left) P.stash.grid.items.push(it);
     PF.commit();
     this.inv.refresh();
+  }
+
+  sellModal(opts = {}) {
+    sellModal(() => { this.inv.refresh(); this.refreshSide(); this.updateTop(); }, opts);
   }
 
   favoritesModal() {
@@ -245,6 +251,11 @@ export class Menu {
     if (def.stack > 1 && it.count > 1) out.push({ text: '半分に分割', fn: () => { const P = PF.profile(); const root = ref === 'stash' ? P.stash : P.loadout; const n = Math.floor(it.count / 2); const part = createItem(it.id, { count: n }); if (autoInsert(P.stash, part)) { it.count -= n; PF.commit(); this.inv.refresh(); } else toast('空きがない', 'warn'); void root; } });
     const b = PF.bestTraderFor(it);
     if (b.price) out.push({ text: `売却 → ${b.trader.name}（${fmt(b.price)} C）`, fn: () => this.sell(ref, it, b.trader) });
+    // 同じ種類が倉庫に複数あれば、まとめて売る
+    if (b.price && ref === 'stash') {
+      const g = PF.sellGroups().find((x) => x.id === it.id);
+      if (g && g.sellable.length > 1) out.push({ text: `同じ物をすべて売却（${g.sellable.length} 個 ・ ${fmt(g.total)} C）`, fn: () => { const r = PF.sellMany(g.sellable.map((x) => x.uid)); toast(`${def.name} を ${r.count} 個、${fmt(r.total)} C で売却した`, 'good'); this.inv.refresh(); this.refreshSide(); this.updateTop(); } });
+    }
     out.push({ text: '破棄', fn: async () => { if (await confirmBox('破棄', `${def.name} を破棄しますか？`, '破棄')) { const P = PF.profile(); removeItem(ref === 'stash' ? P.stash : P.loadout, it.uid); PF.commit(); this.inv.refresh(); } } });
     return out;
   }

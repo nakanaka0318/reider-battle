@@ -192,6 +192,69 @@ export function buyItem(def) {
   return { ok: true };
 }
 
+// ---------------------------------------------------------------- まとめて売却
+// 進行中タスクの納品に必要な ✔ アイテムの数（売らずに残す）
+export function questReserve() {
+  const need = new Map();
+  for (const q of QUESTS) {
+    if (P.quests[q.id]?.state !== 'active') continue;
+    for (const o of q.obj) if (o.type === 'find') need.set(o.item, (need.get(o.item) || 0) + o.count);
+  }
+  return need;
+}
+// 倉庫の売れるアイテムを種類ごとにまとめる（中身の入ったバッグ・セキュアコンテナ・通貨は除く）
+export function sellGroups(rootName = 'stash') {
+  const root = rootName === 'stash' ? P.stash : P.loadout;
+  const reserve = questReserve();
+  const groups = new Map();
+  for (const { grid, slot } of listGrids(root)) {
+    if (slot === 'secure') continue;
+    for (const it of grid.items) {
+      const def = ITEMS[it.id];
+      if (!def || def.cat === 'secure' || def.cat === 'money') continue;
+      if (it.grids?.some((g) => g.items.length)) continue;
+      const b = bestTraderFor(it);
+      if (!b.price) continue;
+      let g = groups.get(it.id);
+      if (!g) groups.set(it.id, g = { id: it.id, def, items: [], reserved: 0 });
+      g.items.push({ uid: it.uid, price: b.price, trader: b.trader, count: def.stack > 1 ? it.count : 1, fir: !!it.fir });
+    }
+  }
+  // 納品用の ✔ アイテムは売る対象から外す（✔ の物を優先して残す）
+  for (const g of groups.values()) {
+    let keep = reserve.get(g.id) || 0;
+    g.items.sort((x, y) => Number(y.fir) - Number(x.fir));
+    for (const it of g.items) {
+      if (keep <= 0 || !it.fir) break;
+      if (it.count <= keep) { it.reserved = true; keep -= it.count; g.reserved += it.count; } else break;
+    }
+    g.sellable = g.items.filter((it) => !it.reserved);
+    g.count = g.sellable.reduce((n, it) => n + it.count, 0);
+    g.total = g.sellable.reduce((n, it) => n + it.price, 0);
+    const tr = new Map();
+    for (const it of g.sellable) tr.set(it.trader.name, (tr.get(it.trader.name) || 0) + 1);
+    g.traders = [...tr.keys()];
+  }
+  return [...groups.values()].filter((g) => g.sellable.length).sort((a, b) => b.total - a.total);
+}
+// uid の一覧をそれぞれ一番高く買うトレーダーに売る
+export function sellMany(uids, rootName = 'stash') {
+  const root = rootName === 'stash' ? P.stash : P.loadout;
+  let total = 0, count = 0;
+  for (const uid of uids) {
+    const f = findItem(root, uid);
+    if (!f || f.modOf) continue;
+    const b = bestTraderFor(f.item);
+    if (!b.price) continue;
+    removeItem(root, uid);
+    total += b.price; count++;
+  }
+  P.money += total;
+  P.stats.totalEarned = (P.stats.totalEarned || 0) + total;
+  changed();
+  return { total, count };
+}
+
 // 倉庫内のクレジットを入金
 export function depositCredits() {
   let total = 0;
@@ -396,6 +459,7 @@ export function applyRaidResult(res) {
 // 装備スロットに付けている物と、持ち込んだ物（弾薬・医薬品など）はそのまま残す。
 export function stashRaidLoot() {
   let moved = 0, value = 0, left = 0;
+  const uids = [];
   const grids = listGrids(P.loadout).filter((g) => !g.owner || g.slot);
   for (const { grid } of grids) {
     for (const it of [...grid.items]) {
@@ -404,7 +468,7 @@ export function stashRaidLoot() {
       if (autoInsert(P.stash, it)) {
         const i = grid.items.indexOf(it);
         if (i >= 0) grid.items.splice(i, 1);
-        moved++; value += v;
+        moved++; value += v; uids.push(it.uid);
       } else {
         // 一部だけスタックに統合された場合も含む
         if ((it.count || 1) < n) { moved++; value += v - itemValue(it); }
@@ -412,7 +476,7 @@ export function stashRaidLoot() {
       }
     }
   }
-  return { moved, value, left };
+  return { moved, value, left, uids };
 }
 
 export function itemsValue(root) {

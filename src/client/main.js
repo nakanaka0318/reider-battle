@@ -216,6 +216,7 @@ function showResult(res) {
     !ok && res.secure ? h('div', { class: 'mini', style: { textAlign: 'center', marginTop: '8px' } }, 'セキュアコンテナの中身は無事だった。') : null,
     h('div', { class: 'row', style: { justifyContent: 'center', gap: '10px', marginTop: '20px', flexWrap: 'wrap' } },
       !ok && PF.listFavorites().length ? h('button', { class: 'btn big', onclick: () => { showMenu(); menu.favoritesModal(); } }, '★ お気に入り装備で編成') : null,
+      r.stashed?.uids?.length ? h('button', { class: 'btn big', onclick: () => { showMenu(); menu.sellModal({ raidUids: r.stashed.uids }); } }, '持ち帰った物を売る') : null,
       h('button', { class: 'btn primary big', onclick: showMenu }, 'ハイドアウトへ戻る')),
   ));
   void before;
