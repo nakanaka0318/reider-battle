@@ -71,7 +71,7 @@ wss.on('connection', (ws) => {
       const p = m.profile || {};
       const name = String(p.name || 'レイダー').slice(0, 16);
       try {
-        raid.addClient(cid, { name, inv: sanitizeInv(p.inv), health: p.health, level: p.level }, send);
+        raid.addClient(cid, { name, inv: sanitizeInv(p.inv), health: p.health, level: p.level, easy: !!p.easy }, send);
         joined = true;
         console.log(`[join] ${name} (${cid}) players=${raid.clients.size}`);
       } catch (e) {

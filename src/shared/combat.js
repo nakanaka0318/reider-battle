@@ -114,15 +114,17 @@ export function damageHuman(a, zone, ammo, rng, opts = {}) {
   }
   // フラグメント
   if (!blocked && ammo.frag && rng() < ammo.frag * 0.4) dmg *= 1.5;
+  // イージー：受けるダメージ 1/4、出血・骨折なし
+  if (a.easy) dmg *= 0.25;
   const res = applyPartDamage(a, zone, dmg, rng);
   res.blocked = blocked; res.armorHit = armorHit;
   // 出血・骨折
-  if (!blocked && H && dmg > 12 && !opts.noBleed) {
+  if (!blocked && H && dmg > 12 && !opts.noBleed && !a.easy) {
     const isLimb = zone !== 'head';
     if (isLimb && rng() < 0.12 + dmg / 400) { H.bleed[zone] = 2; res.bleed = 2; }
     else if (isLimb && rng() < 0.3 + dmg / 300) { H.bleed[zone] = Math.max(H.bleed[zone] || 0, 1); res.bleed = 1; }
   }
-  if (H && (zone.startsWith('leg') || zone.startsWith('arm')) && dmg > 25 && rng() < 0.18 + (opts.explosive ? 0.2 : 0)) {
+  if (H && !a.easy && (zone.startsWith('leg') || zone.startsWith('arm')) && dmg > 25 && rng() < 0.18 + (opts.explosive ? 0.2 : 0)) {
     H.fracture[zone] = true; res.fracture = true;
   }
   return res;
@@ -131,6 +133,15 @@ export function damageHuman(a, zone, ammo, rng, opts = {}) {
 export function applyPartDamage(a, zone, dmg, rng) {
   const H = a.health;
   let killed = false;
+  // イージー：手足は HP 1 で止まり欠損しない（あふれた分は他の部位へ）
+  if (a.easy && zone !== 'head' && zone !== 'thorax') {
+    const keep = Math.min(H.hp[zone], 1);
+    const take = Math.min(dmg, Math.max(0, H.hp[zone] - keep));
+    H.hp[zone] -= take;
+    if (dmg > take) spreadEasy(H, zone, (dmg - take) * (zone.startsWith('arm') ? 0.7 : 0.8));
+    if (H.hp.head <= 0 || H.hp.thorax <= 0) killed = true;
+    return { dmg, zone, killed };
+  }
   if (H.hp[zone] > 0) {
     const before = H.hp[zone];
     H.hp[zone] = Math.max(0, before - dmg);
@@ -147,6 +158,20 @@ export function applyPartDamage(a, zone, dmg, rng) {
   if (H.hp.head <= 0 || H.hp.thorax <= 0) killed = true;
   void rng;
   return { dmg, zone, killed };
+}
+
+// イージー用：手足は 1 未満にしない。受けきれない分は胸部へ
+function spreadEasy(H, from, dmg) {
+  const floor = (p) => (p === 'head' || p === 'thorax' ? 0 : 1);
+  const alive = PARTS.filter((p) => p !== from && H.hp[p] > floor(p));
+  if (!alive.length) { H.hp.thorax = Math.max(0, H.hp.thorax - dmg); return; }
+  const each = dmg / alive.length;
+  let rest = 0;
+  for (const p of alive) {
+    const t = Math.min(each, H.hp[p] - floor(p));
+    H.hp[p] -= t; rest += each - t;
+  }
+  if (rest > 0.01) H.hp.thorax = Math.max(0, H.hp.thorax - rest);
 }
 
 function spread(H, from, dmg) {

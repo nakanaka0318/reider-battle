@@ -22,7 +22,7 @@ export class Menu {
     this.onSettings = onSettings;
     this.tab = 'stash';
     this.trader = TRADERS[0].id;
-    this.deployOpts = { mode: 'offline', timeOfDay: 'day', duration: 30, density: 'normal', raiders: 9 };
+    this.deployOpts = { difficulty: 'normal', mode: 'offline', timeOfDay: 'day', duration: 30, density: 'normal', raiders: 9 };
     try { Object.assign(this.deployOpts, JSON.parse(localStorage.getItem('rb-deploy') || '{}')); } catch { /* noop */ }
     if (OFFLINE_ONLY) this.deployOpts.mode = 'offline';
     this.inv = new InvView({
@@ -549,6 +549,9 @@ export class Menu {
       h('div', { class: 'opt-group' }, h('label', { class: 'h' }, 'モード'), h('div', { class: 'opts' },
         opt('mode', 'offline', 'オールNPC', '他の「レイダー」も全員AI。ソロで遊べるPvPvE。'),
         OFFLINE_ONLY ? h('div', { class: 'opt', style: { opacity: 0.5, cursor: 'default' } }, h('b', {}, 'オンライン PvPvE'), h('small', {}, 'このページ版では使えません。サーバー版（npm start）で遊べます。')) : opt('mode', 'online', 'オンライン PvPvE', 'サーバーに接続し、他プレイヤー＋AIと同じレイドに参加する。'))),
+      h('div', { class: 'opt-group' }, h('label', { class: 'h' }, '難易度'), h('div', { class: 'opts' },
+        opt('difficulty', 'normal', 'ノーマル', '出血・骨折・部位欠損あり。本来のバランス。'),
+        opt('difficulty', 'easy', 'イージー', '自分が受けるダメージ 1/4。出血・骨折・部位欠損なし。'))),
       o.mode === 'online' ? h('div', { class: 'opt-group' }, h('label', { class: 'h' }, 'サーバーアドレス'),
         h('input', { class: 'search', style: { width: '100%', padding: '8px' }, value: P.settings.serverUrl || defaultServer(), placeholder: 'ws://localhost:8080', oninput: (e) => { P.settings.serverUrl = e.target.value; PF.save(); } }),
         h('div', { class: 'mini', style: { marginTop: '4px' } }, '同じサーバーに接続したプレイヤーは同じレイドに入る（レイド進行中は途中参加）。')) : null,

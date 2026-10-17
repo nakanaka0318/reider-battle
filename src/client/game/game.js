@@ -123,7 +123,7 @@ export class Game {
     // 接続
     this.loadText.textContent = this.opts.mode === 'online' ? 'サーバーに接続中…' : 'レイドを生成中…';
     await frame();
-    const profileMsg = { name: this.profile.name, inv: this.opts.loadout, health: this.profile.health, level: this.opts.level };
+    const profileMsg = { name: this.profile.name, inv: this.opts.loadout, health: this.profile.health, level: this.opts.level, easy: this.opts.difficulty === 'easy' };
     this.net = this.opts.mode === 'online' ? new WSTransport(this.opts.serverUrl) : new LocalTransport(this.opts);
     try {
       await this.net.connect(profileMsg);

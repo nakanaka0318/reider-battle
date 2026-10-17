@@ -220,6 +220,7 @@ export class Raid {
     if (profile.health) { a.health.energy = profile.health.energy ?? 100; a.health.hydration = profile.health.hydration ?? 100; }
     a.slot = a.inv.equip.primary ? 'primary' : a.inv.equip.secondary ? 'secondary' : 'holster';
     a.cid = cid;
+    a.easy = !!profile.easy;
     const c = { cid, actorId: a.id, send, viewing: null, invDirty: true, knownInfo: new Set(), level: profile.level || 1 };
     this.clients.set(cid, c);
     for (const it of allItems(a.inv)) delete it.fir;
