@@ -8,6 +8,12 @@
 
 グラフィック・アイコン・サウンドはすべてプロシージャル生成（外部アセットなし）。
 
+## すぐ遊ぶ（GitHub Pages）
+
+https://nakanaka0318.github.io/reider-battle/ （オールNPC版。PC とスマホ横画面に対応）
+
+`.github/workflows/pages.yml` がプッシュのたびにビルドして公開する。初回だけリポジトリの Settings → Pages → Source を「GitHub Actions」にしておく。
+
 ## 起動方法
 
 ```bash
