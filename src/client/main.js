@@ -105,6 +105,7 @@ function settingsModal() {
     row('画質', qual),
     row('エイムアシスト', h('select', { onchange: (e) => { S.aimAssist = +e.target.value; PF.save(); } }, ['なし', '弱', '標準', '強'].map((t, i) => h('option', { value: i, selected: (S.aimAssist ?? 0) === i }, t)))),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.autoFire, onchange: (e) => { S.autoFire = e.target.checked; PF.save(); } }), 'オートファイア（照準が敵に重なると自動で撃つ）'),
+    h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: S.autoStash !== false, onchange: (e) => { S.autoStash = e.target.checked; PF.save(); } }), '脱出後、入手したアイテムを自動で倉庫に入れる'),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.invertY, onchange: (e) => { S.invertY = e.target.checked; PF.save(); } }), 'マウス Y 軸反転'),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.showFps, onchange: (e) => { S.showFps = e.target.checked; PF.save(); } }), 'FPS・PING を表示'),
   ), [{ text: '閉じる' }]);
@@ -158,6 +159,8 @@ function showResult(res) {
       h('div', { class: 'st' }, h('b', {}, '+' + fmt(r.xp)), h('small', {}, '獲得 XP')),
     ),
     st.shots ? h('div', { class: 'mini', style: { textAlign: 'center' } }, `射撃 ${st.shots} 発 ・ 命中 ${st.hits || 0}（${Math.round(((st.hits || 0) / st.shots) * 100)}%） ・ スカブ ${st.scavKills || 0} ・ レイダー ${st.pmcKills || 0} ・ ARC ${st.machineKills || 0}`) : null,
+    r.stashed?.moved ? h('div', { class: 'mini', style: { textAlign: 'center', color: '#8ad070', marginTop: '6px' } }, `入手したアイテム ${r.stashed.moved} 個（${fmt(r.stashed.value)} C 相当）を倉庫に入れた`) : null,
+    r.stashed?.left ? h('div', { class: 'mini', style: { textAlign: 'center', color: '#d2a03a', marginTop: '4px' } }, `倉庫に空きがなく ${r.stashed.left} 個は装備に残した`) : null,
     r.deposited ? h('div', { class: 'mini', style: { textAlign: 'center', color: '#e8c26a', marginTop: '6px' } }, `持ち帰ったクレジット ${fmt(r.deposited)} C を入金した`) : null,
     r.levelUp ? h('div', { style: { textAlign: 'center', color: '#e8c26a', fontSize: '20px', margin: '10px 0', fontWeight: 700 } }, `レベルアップ！ → レベル ${PF.level()}`) : null,
     lootList.length ? h('div', { class: 'panel', style: { marginTop: '12px' } }, h('div', { class: 'panel-h' }, 'レイド内で入手したアイテム'), h('div', { class: 'panel-b', style: { display: 'flex', flexWrap: 'wrap', gap: '4px' } }, lootList.map((i) => h('span', { class: 'tag', style: { fontSize: '12px' } }, ITEMS[i.id].name + (i.count > 1 ? ` ×${i.count}` : ''))))) : null,

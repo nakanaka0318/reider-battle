@@ -87,7 +87,7 @@ function migrate(p) {
 
 function defaultSettings() {
   const touch = typeof window !== 'undefined' && matchMedia('(pointer: coarse)').matches;
-  return { sens: 1.0, fov: touch ? 70 : 75, volume: 0.8, music: 0.4, quality: touch ? 'medium' : 'high', invertY: false, serverUrl: '', showFps: false, adsSensMul: 0.75, touchSens: 1.0, aimAssist: touch ? 2 : 0, autoFire: false, footsteps: 0.3 };
+  return { sens: 1.0, fov: touch ? 70 : 75, volume: 0.8, music: 0.4, quality: touch ? 'medium' : 'high', invertY: false, serverUrl: '', showFps: false, adsSensMul: 0.75, touchSens: 1.0, aimAssist: touch ? 2 : 0, autoFire: false, footsteps: 0.3, autoStash: true };
 }
 
 export function stashRows(p = P) {
@@ -382,11 +382,35 @@ export function applyRaidResult(res) {
   const lvBefore = level();
   P.xp += Math.round(xp);
   const deposited = res.survived ? depositCredits() : 0;
+  const stashed = res.survived && P.settings.autoStash !== false ? stashRaidLoot() : null;
   const entry = { t: Date.now(), survived: !!res.survived, mia: !!res.mia, ex: res.exName || null, killer: res.killer || null, kills: st.kills || 0, gained, xp: Math.round(xp), deposited };
   P.history.unshift(entry);
   P.history = P.history.slice(0, 30);
   changed();
-  return { ...entry, levelUp: level() > lvBefore };
+  return { ...entry, levelUp: level() > lvBefore, stashed };
+}
+
+// レイド内で入手したアイテム（✔ 印）をポケット・リグ・バックパック・セキュアコンテナから倉庫へ移す。
+// 装備スロットに付けている物と、持ち込んだ物（弾薬・医薬品など）はそのまま残す。
+export function stashRaidLoot() {
+  let moved = 0, value = 0, left = 0;
+  const grids = listGrids(P.loadout).filter((g) => !g.owner || g.slot);
+  for (const { grid } of grids) {
+    for (const it of [...grid.items]) {
+      if (!it.fir) continue;
+      const v = itemValue(it), n = it.count || 1;
+      if (autoInsert(P.stash, it)) {
+        const i = grid.items.indexOf(it);
+        if (i >= 0) grid.items.splice(i, 1);
+        moved++; value += v;
+      } else {
+        // 一部だけスタックに統合された場合も含む
+        if ((it.count || 1) < n) { moved++; value += v - itemValue(it); }
+        left++;
+      }
+    }
+  }
+  return { moved, value, left };
 }
 
 export function itemsValue(root) {
