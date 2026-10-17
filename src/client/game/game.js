@@ -201,7 +201,8 @@ export class Game {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.fps = this.fps * 0.95 + (1 / Math.max(0.001, dt)) * 0.05;
-    try { this.frame(dt); } catch (e) { console.error(e); window.__rbError?.(e); }
+    // 例外が出ても入力の「押した瞬間」は必ず消す（消えないと毎フレーム同じ処理が走って止まる）
+    try { this.frame(dt); } catch (e) { console.error(e); window.__rbError?.(e); this.input.endFrame(); }
   }
 
   frame(dt) {
@@ -310,6 +311,8 @@ export class Game {
   }
 
   // ---------------------------------------------------------------- 描画
+  toastMsg(text, warn = false) { this.hud.msg(text, warn); }
+
   onContextLost() {
     this.ctxLost = true;
     if (this.ctxEl) return;
@@ -889,7 +892,7 @@ export class Game {
   autoHeal() {
     const S = this.selfState;
     if (!S || !this.inv) return;
-    const meds = allItems(this.inv, false).filter((i) => ITEMS[i.id].cat === 'med');
+    const meds = allItems(this.inv).filter((i) => ITEMS[i.id].cat === 'med');
     const need = (f) => meds.find((it) => f(ITEMS[it.id].med));
     let pick = null;
     const bl = Object.values(S.bleed || {});
@@ -899,8 +902,8 @@ export class Game {
     if (!pick && Object.keys(S.dest || {}).length) pick = need((m) => m.restore);
     let tot = 0; for (const p of PARTS) tot += S.hp[p];
     if (!pick && tot < 420) pick = need((m) => m.heal > 0);
-    if (!pick && S.hy < 50) pick = allItems(this.inv, false).find((i) => (ITEMS[i.id].med?.hydration || 0) > 20);
-    if (!pick && S.en < 50) pick = allItems(this.inv, false).find((i) => (ITEMS[i.id].med?.energy || 0) > 20);
+    if (!pick && S.hy < 50) pick = allItems(this.inv).find((i) => (ITEMS[i.id].med?.hydration || 0) > 20);
+    if (!pick && S.en < 50) pick = allItems(this.inv).find((i) => (ITEMS[i.id].med?.energy || 0) > 20);
     if (pick) { this.useItem(pick.uid); this.hud.msg(`${ITEMS[pick.id].name} を使用`); }
     else this.hud.msg('使える医薬品がない', true);
   }

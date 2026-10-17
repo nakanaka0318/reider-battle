@@ -221,7 +221,7 @@ export class LocalPlayer {
   // 投擲物
   throwGrenade() {
     const g = this.g;
-    const nades = allItems(this.inv, false).filter((i) => ITEMS[i.id].cat === 'grenade');
+    const nades = allItems(this.inv).filter((i) => ITEMS[i.id].cat === 'grenade');
     if (!nades.length) { g.toastMsg('投擲物を持っていない', true); return; }
     const it = g.preferredNade && nades.find((n) => n.uid === g.preferredNade) || nades.find((n) => ITEMS[n.id].grenade.type === 'frag') || nades[0];
     this.throwUntil = g.time + 0.8;
