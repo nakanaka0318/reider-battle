@@ -133,14 +133,12 @@ export function damageHuman(a, zone, ammo, rng, opts = {}) {
 export function applyPartDamage(a, zone, dmg, rng) {
   const H = a.health;
   let killed = false;
-  // イージー：手足は HP 1 で止まり欠損しない（あふれた分は他の部位へ）
-  if (a.easy && zone !== 'head' && zone !== 'thorax') {
-    const keep = Math.min(H.hp[zone], 1);
-    const take = Math.min(dmg, Math.max(0, H.hp[zone] - keep));
+  // イージー：部位欠損なし。頭・胸部が 0 になっても死なず、全身の HP 合計が 0 になったときだけ死亡
+  if (a.easy) {
+    const take = Math.min(dmg, Math.max(0, H.hp[zone]));
     H.hp[zone] -= take;
-    if (dmg > take) spreadEasy(H, zone, (dmg - take) * (zone.startsWith('arm') ? 0.7 : 0.8));
-    if (H.hp.head <= 0 || H.hp.thorax <= 0) killed = true;
-    return { dmg, zone, killed };
+    if (dmg > take) spreadEasy(H, zone, dmg - take);
+    return { dmg, zone, killed: totalHp(H) <= 0.01 };
   }
   if (H.hp[zone] > 0) {
     const before = H.hp[zone];
@@ -160,18 +158,15 @@ export function applyPartDamage(a, zone, dmg, rng) {
   return { dmg, zone, killed };
 }
 
-// イージー用：手足は 1 未満にしない。受けきれない分は胸部へ
+// イージー用：あふれた分を HP が残っている部位へ均等に回す
 function spreadEasy(H, from, dmg) {
-  const floor = (p) => (p === 'head' || p === 'thorax' ? 0 : 1);
-  const alive = PARTS.filter((p) => p !== from && H.hp[p] > floor(p));
-  if (!alive.length) { H.hp.thorax = Math.max(0, H.hp.thorax - dmg); return; }
-  const each = dmg / alive.length;
-  let rest = 0;
-  for (const p of alive) {
-    const t = Math.min(each, H.hp[p] - floor(p));
-    H.hp[p] -= t; rest += each - t;
+  for (let n = 0; n < 8 && dmg > 0.01; n++) {
+    const alive = PARTS.filter((p) => p !== from && H.hp[p] > 0);
+    if (!alive.length) break;
+    const each = dmg / alive.length;
+    dmg = 0;
+    for (const p of alive) { const t = Math.min(each, H.hp[p]); H.hp[p] -= t; dmg += each - t; }
   }
-  if (rest > 0.01) H.hp.thorax = Math.max(0, H.hp.thorax - rest);
 }
 
 function spread(H, from, dmg) {

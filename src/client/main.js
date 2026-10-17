@@ -6,6 +6,7 @@ import { ITEMS } from '../shared/items.js';
 import { allItems } from '../shared/inventory.js';
 import { music } from './music.js';
 import { playersModal } from './ui/players.js';
+import { favoritesModal } from './ui/favorites.js';
 
 const app = document.getElementById('app');
 let menu = null;
@@ -165,7 +166,9 @@ function showResult(res) {
     r.levelUp ? h('div', { style: { textAlign: 'center', color: '#e8c26a', fontSize: '20px', margin: '10px 0', fontWeight: 700 } }, `レベルアップ！ → レベル ${PF.level()}`) : null,
     lootList.length ? h('div', { class: 'panel', style: { marginTop: '12px' } }, h('div', { class: 'panel-h' }, 'レイド内で入手したアイテム'), h('div', { class: 'panel-b', style: { display: 'flex', flexWrap: 'wrap', gap: '4px' } }, lootList.map((i) => h('span', { class: 'tag', style: { fontSize: '12px' } }, ITEMS[i.id].name + (i.count > 1 ? ` ×${i.count}` : ''))))) : null,
     !ok && res.secure ? h('div', { class: 'mini', style: { textAlign: 'center', marginTop: '8px' } }, 'セキュアコンテナの中身は無事だった。') : null,
-    h('div', { style: { textAlign: 'center', marginTop: '20px' } }, h('button', { class: 'btn primary big', onclick: showMenu }, 'ハイドアウトへ戻る')),
+    h('div', { class: 'row', style: { justifyContent: 'center', gap: '10px', marginTop: '20px', flexWrap: 'wrap' } },
+      !ok && PF.listFavorites().length ? h('button', { class: 'btn big', onclick: () => { showMenu(); menu.favoritesModal(); } }, '★ お気に入り装備で編成') : null,
+      h('button', { class: 'btn primary big', onclick: showMenu }, 'ハイドアウトへ戻る')),
   ));
   void before;
   app.append(box);

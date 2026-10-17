@@ -45,7 +45,8 @@ button { font-family: inherit; }
 .title-menu { position: relative; margin-top: 48px; display: flex; flex-direction: column; gap: 12px; align-items: center; width: min(360px, 90vw); }
 .title-menu input { width: 100%; padding: 12px; background: #111; border: 1px solid var(--line2); color: var(--text); font-size: 16px; text-align: center; font-family: var(--font); }
 .title-menu .btn { width: 100%; }
-.title-foot { position: absolute; bottom: 14px; color: #555; font-size: 12px; }
+.title-foot { position: absolute; bottom: 14px; color: #555; font-size: 12px; pointer-events: none; }
+@media (max-height: 520px) { .title-foot { display: none; } }
 
 /* ---------------------------------------------------------------- メニュー */
 .menu { position: absolute; inset: 0; display: flex; flex-direction: column; background: linear-gradient(180deg, #121517, #0b0d0e); }

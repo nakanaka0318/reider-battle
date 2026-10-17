@@ -1,6 +1,6 @@
 // プレイヤープロフィール（ローカル保存）：倉庫・装備・所持金・トレーダー・クラフト・クエスト
-import { ITEMS, ITEM_LIST, createItem, itemValue, EQUIP_SLOTS, slotAccepts, weaponStats } from '../shared/items.js';
-import { newGrid, newActorInv, autoInsert, findItem, removeItem, allItems, listGrids, canEquip, countAmmo } from '../shared/inventory.js';
+import { ITEMS, ITEM_LIST, createItem, itemValue, EQUIP_SLOTS, slotAccepts, weaponStats, weaponCapacity, modFits } from '../shared/items.js';
+import { newGrid, newActorInv, autoInsert, findItem, removeItem, allItems, listGrids, canEquip, countAmmo, canPlace } from '../shared/inventory.js';
 import { TRADERS, RECIPES, STATIONS, QUESTS, traderBuyRate, traderMaxRarity, levelFromXp } from '../shared/data/meta.js';
 
 const KEY = 'raider-battle-profile-v1';
@@ -607,4 +607,191 @@ export function autoBuyLoadout(budget) {
   const log = autoEquip('fill');
   changed();
   return { spent: startMoney - P.money, bought, log };
+}
+
+// ---------------------------------------------------------------- お気に入り装備
+// プレイヤー（セーブデータ）をまたいで使えるよう、端末に 1 つだけ保存する
+const FAV_KEY = 'rb-favorites-v1';
+export const FAV_MAX = 5;
+export function listFavorites() { try { return JSON.parse(lsGet(FAV_KEY) || '[]'); } catch { return []; } }
+function writeFavorites(list) { lsSet(FAV_KEY, JSON.stringify(list.slice(0, FAV_MAX))); }
+
+function specOf(it) {
+  const s = { id: it.id };
+  if (it.count > 1) s.count = it.count;
+  if (it.mods) {
+    const m = {};
+    for (const [k, v] of Object.entries(it.mods)) if (v) m[k] = v.id;
+    if (Object.keys(m).length) s.mods = m;
+  }
+  if (it.mag) s.ammo = it.mag.ammo;
+  return s;
+}
+
+// 今の装備をお気に入りに登録（index を指定するとその枠を上書き）
+export function saveFavorite(name, index = -1) {
+  const lo = P.loadout;
+  const equip = {};
+  for (const s of EQUIP_SLOTS) if (lo.equip[s]) equip[s] = specOf(lo.equip[s]);
+  const contents = [];
+  const add = (where, gi, grid) => { for (const it of grid.items) contents.push({ ...specOf(it), where, gi, x: it.x, y: it.y, rot: !!it.rot }); };
+  if (lo.pockets) add('pockets', 0, lo.pockets);
+  for (const s of ['rig', 'backpack']) lo.equip[s]?.grids?.forEach((g, i) => add(s, i, g));
+  const fav = { name: name || 'お気に入り', t: Date.now(), equip, contents, value: itemsValue({ equip: { ...lo.equip, secure: null }, pockets: lo.pockets }) };
+  const list = listFavorites();
+  if (index >= 0 && index < list.length) list[index] = fav; else list.unshift(fav);
+  writeFavorites(list);
+  return fav;
+}
+export function deleteFavorite(index) { const list = listFavorites(); list.splice(index, 1); writeFavorites(list); }
+
+// お気に入りの通りに装備する。倉庫にある物を先に使い、無い物はトレーダーから買う（買えない物は飛ばす）
+function applyFavoriteInner(fav) {
+  const lo = P.loadout, st = P.stash;
+  const start = P.money;
+  const stock = new Map();
+  for (const t of TRADERS) for (const d of traderStock(t)) stock.set(d.id, d);
+  const bought = [], fromStash = [], missing = [];
+  const miss = (id, why) => { const n = ITEMS[id]?.name || id; if (!missing.some((m) => m.name === n && m.why === why)) missing.push({ name: n, why }); };
+  const buyOne = (id) => {
+    const d = stock.get(id);
+    if (!d) return { why: '売っていない' };
+    const pr = buyPrice(d);
+    if (P.money < pr) return { why: 'お金が足りない' };
+    P.money -= pr;
+    bought.push(d.name);
+    return { item: createItem(id, { count: buyPack(d) }) };
+  };
+  // 倉庫から 1 個取り出す（中身の入ったバッグは使わない）
+  const takeOne = (id) => {
+    let best = null, bestGrid = null;
+    for (const { grid } of listGrids(st)) for (const it of grid.items) {
+      if (it.id !== id || it.grids?.some((g) => g.items.length)) continue;
+      if (!best || (it.dur ?? 0) > (best.dur ?? 0)) { best = it; bestGrid = grid; }
+    }
+    if (!best) return null;
+    bestGrid.items.splice(bestGrid.items.indexOf(best), 1);
+    fromStash.push(ITEMS[id].name);
+    return best;
+  };
+  const obtain = (id) => {
+    const it = takeOne(id);
+    if (it) return { item: it };
+    return buyOne(id);
+  };
+  // スタック品（弾薬など）を n 個分用意する。余った分は倉庫へ
+  const obtainStack = (id, n) => {
+    let got = takeFromStash(id, n);
+    if (got) fromStash.push(ITEMS[id].name);
+    let why = null;
+    while (got < n) {
+      const r = buyOne(id);
+      if (!r.item) { why = r.why; break; }
+      const extra = got + r.item.count - n;
+      if (extra > 0) { const rest = createItem(id, { count: extra }); autoInsert(st, rest); }
+      got += r.item.count - Math.max(0, extra);
+    }
+    return { got, why };
+  };
+  const toStash = (it) => { delete it.x; delete it.y; it.rot = false; return autoInsert(st, it); };
+
+  // 1) 装備スロット。違う物を先に全部外してから（リグとアーマーの排他）、お金が足りないときに困らない順で付ける
+  const order = ['primary', 'holster', 'armor', 'rig', 'backpack', 'helmet', 'secondary', 'secure'];
+  const blocked = new Set();
+  for (const slot of order) {
+    const spec = fav.equip[slot], cur = lo.equip[slot];
+    if (!spec || !cur || cur.id === spec.id) continue;
+    lo.equip[slot] = null;
+    if (!toStash(cur)) { lo.equip[slot] = cur; miss(spec.id, '倉庫に空きがない'); blocked.add(slot); }
+  }
+  for (const slot of order) {
+    const spec = fav.equip[slot];
+    if (!spec || blocked.has(slot)) continue;
+    let cur = lo.equip[slot];
+    if (!cur) {
+      const r = obtain(spec.id);
+      if (!r.item) { miss(spec.id, r.why); continue; }
+      if (!canEquip(lo, slot, r.item)) { toStash(r.item); miss(spec.id, '装着できない'); continue; }
+      delete r.item.x; delete r.item.y; r.item.rot = false;
+      lo.equip[slot] = cur = r.item;
+    }
+    // 武器のパーツ
+    if (spec.mods && cur.mods) {
+      for (const [ms, mid] of Object.entries(spec.mods)) {
+        if (cur.mods[ms]?.id === mid || !ITEMS[mid] || !modFits(ITEMS[cur.id], ITEMS[mid])) continue;
+        const r = obtain(mid);
+        if (!r.item) { miss(mid, r.why); continue; }
+        const old = cur.mods[ms];
+        if (old && !toStash(old)) { toStash(r.item); miss(mid, '倉庫に空きがない'); continue; }
+        delete r.item.x; delete r.item.y;
+        cur.mods[ms] = r.item;
+      }
+      if (cur.mag) cur.mag.count = Math.min(cur.mag.count, weaponCapacity(cur));
+    }
+  }
+
+  // 2) 武器に好みの弾を込める
+  for (const slot of ['primary', 'secondary', 'holster']) {
+    const w = lo.equip[slot], spec = fav.equip[slot];
+    if (!w?.mag || !spec || w.id !== spec.id) continue;
+    const cap = weaponCapacity(w);
+    const want = spec.ammo && ITEMS[spec.ammo] ? spec.ammo : w.mag.ammo;
+    if (w.mag.ammo === want && w.mag.count >= cap) continue;
+    if (w.mag.ammo !== want && w.mag.count > 0) {
+      const r = obtainStack(want, cap);
+      if (!r.got) { if (r.why) miss(want, r.why); continue; }
+      autoInsert(st, createItem(w.mag.ammo, { count: w.mag.count }));
+      w.mag.ammo = want; w.mag.count = r.got;
+    } else {
+      const r = obtainStack(want, cap - (w.mag.ammo === want ? w.mag.count : 0));
+      if (r.why) miss(want, r.why);
+      if (w.mag.ammo !== want) { w.mag.ammo = want; w.mag.count = 0; }
+      w.mag.count += r.got;
+    }
+  }
+
+  // 3) ポケット・リグ・バックパックの中身（今ある分は数え、足りない分だけ用意）
+  const have = new Map();
+  for (const { grid, owner, slot } of listGrids(lo)) {
+    if (owner && !slot) continue;
+    if (slot === 'secure') continue;
+    for (const it of grid.items) have.set(it.id, (have.get(it.id) || 0) + (it.count || 1));
+  }
+  const gridFor = (c) => (c.where === 'pockets' ? lo.pockets : lo.equip[c.where]?.grids?.[c.gi]);
+  for (const c of fav.contents) {
+    if (!ITEMS[c.id]) continue;
+    const n = c.count || 1;
+    const h0 = have.get(c.id) || 0;
+    if (h0 >= n) { have.set(c.id, h0 - n); continue; }
+    have.set(c.id, 0);
+    const need = n - h0;
+    let item;
+    if (ITEMS[c.id].stack > 1) {
+      const r = obtainStack(c.id, need);
+      if (!r.got) { miss(c.id, r.why || '売っていない'); continue; }
+      if (r.got < need && r.why) miss(c.id, r.why);
+      item = createItem(c.id, { count: r.got });
+    } else {
+      const r = obtain(c.id);
+      if (!r.item) { miss(c.id, r.why); continue; }
+      item = r.item;
+      if (c.mods && item.mods) for (const [ms, mid] of Object.entries(c.mods)) if (!item.mods[ms] && ITEMS[mid] && modFits(ITEMS[item.id], ITEMS[mid])) { const m = takeOne(mid); if (m) item.mods[ms] = m; }
+    }
+    const g = gridFor(c);
+    if (g && c.x != null && canPlace(g, item, c.x, c.y, c.rot)) { item.x = c.x; item.y = c.y; item.rot = c.rot; g.items.push(item); }
+    else if (!autoInsert(lo, item)) { toStash(item); miss(c.id, '装備に入りきらない'); }
+  }
+  return { spent: start - P.money, bought, fromStash, missing };
+}
+
+// 実行せずに、いくらかかるか・何が足りないかを調べる
+export function favoritePlan(fav) {
+  const saved = P;
+  P = JSON.parse(JSON.stringify(P));
+  try { return applyFavoriteInner(fav); } finally { P = saved; }
+}
+export function applyFavorite(fav) {
+  const r = applyFavoriteInner(fav);
+  changed();
+  return r;
 }

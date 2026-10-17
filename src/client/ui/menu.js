@@ -11,6 +11,7 @@ import { getItemIcon } from '../icons.js';
 import { drawMapPreview } from './mapview.js';
 import { drawPortrait } from './portrait.js';
 import { buildHintsPage } from './hints.js';
+import { favoritesModal } from './favorites.js';
 
 const OFFLINE_ONLY = !!import.meta.env?.VITE_OFFLINE_ONLY;
 
@@ -99,7 +100,7 @@ export class Menu {
     const page = h('div', { class: 'page', style: { overflow: 'hidden' } },
       h('div', { class: 'inv-layout' },
         h('div', { class: 'inv-col scroll', style: { width: 'auto', minWidth: '420px' } },
-          h('div', { class: 'panel' }, h('div', { class: 'panel-h' }, '装備（出撃時に持ち込む）', h('span', { class: 'sub', id: 'lo-weight' }), h('button', { class: 'btn small primary', onclick: () => this.autoEquipModal() }, 'おまかせ装備')), h('div', { class: 'panel-b' }, this.inv.equipment('loadout'))),
+          h('div', { class: 'panel' }, h('div', { class: 'panel-h' }, '装備（出撃時に持ち込む）', h('span', { class: 'sub', id: 'lo-weight' }), h('button', { class: 'btn small', onclick: () => this.favoritesModal() }, '★ お気に入り'), h('button', { class: 'btn small primary', onclick: () => this.autoEquipModal() }, 'おまかせ装備')), h('div', { class: 'panel-b' }, this.inv.equipment('loadout'))),
         ),
         h('div', { class: 'inv-col', style: { flex: '0 0 auto' } },
           h('div', { class: 'panel', style: { display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '100%' } },
@@ -168,6 +169,10 @@ export class Menu {
     for (const it of left) P.stash.grid.items.push(it);
     PF.commit();
     this.inv.refresh();
+  }
+
+  favoritesModal() {
+    favoritesModal(() => { this.inv.refresh(); this.refreshSide(); this.updateTop(); });
   }
 
   autoEquipModal() {
