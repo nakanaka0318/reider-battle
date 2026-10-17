@@ -47,6 +47,9 @@ export class Game {
     this.actors = new Map();
     this.ground = new Map();
     this.nades = new Map();
+    // 投擲物の見た目は共有（投げるたびに新しいマテリアルを作るとシェーダーの再コンパイルで止まる）
+    this.nadeGeo = new THREE.SphereGeometry(0.06, 8, 6);
+    this.nadeMat = new THREE.MeshStandardMaterial({ color: '#4c5a3a', roughness: 0.6 });
     this.extracts = [];
     this.time = 0;
     this.timeLeft = 0;
@@ -145,6 +148,9 @@ export class Game {
     this.effects.setPrewarm(true);
     const ground0 = { id: '__warm', item: 'bandage', count: 1, x: this.player.pos.x, y: -20, z: this.player.pos.z, rot: 0 };
     this.addGround(ground0);
+    const nadeWarm = new THREE.Mesh(this.nadeGeo, this.nadeMat);
+    nadeWarm.position.set(this.player.pos.x, -20, this.player.pos.z);
+    this.scene.add(nadeWarm);
     this.flashlight.intensity = 1;
     R.compile(this.scene, this.camera);
     R.compile(this.vm.scene, this.vm.camera);
@@ -153,6 +159,7 @@ export class Game {
     this.flashlight.intensity = 0;
     this.effects.setPrewarm(false);
     this.removeGround('__warm');
+    this.scene.remove(nadeWarm);
     this.loadingEl.innerHTML = '';
     this.loadingEl.append(
       h('div', { class: 'logo', style: { fontSize: '42px' } }, this.map.name),
@@ -466,7 +473,7 @@ export class Game {
     for (const [id, x, y, z] of m.n) {
       live.add(id);
       let n = this.nades.get(id);
-      if (!n) { n = { mesh: new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 6), new THREE.MeshStandardMaterial({ color: '#4c5a3a', roughness: 0.6 })), buf: [] }; this.scene.add(n.mesh); this.nades.set(id, n); }
+      if (!n) { n = { mesh: new THREE.Mesh(this.nadeGeo, this.nadeMat), buf: [] }; n.mesh.position.set(x, y, z); this.scene.add(n.mesh); this.nades.set(id, n); }
       n.buf.push({ t: now, x, y, z });
       if (n.buf.length > 10) n.buf.shift();
     }

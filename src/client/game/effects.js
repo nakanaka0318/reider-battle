@@ -1,14 +1,18 @@
 // 視覚エフェクト：パーティクル、曳光弾、マズルフラッシュ、着弾痕、爆発、煙
 import * as THREE from 'three';
+import { IS_TOUCH } from './touch.js';
+
+// スマホは GPU の塗りつぶし負荷が重いので、爆発・煙の粒子を減らし、画面いっぱいの大きな粒子を作らない
+const LITE = IS_TOUCH;
 
 const VS = `
 attribute float size; attribute float alpha; attribute vec3 pcolor;
 varying float vA; varying vec3 vC;
-uniform float uScale;
+uniform float uScale; uniform float uMax;
 void main() {
   vA = alpha; vC = pcolor;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = size * uScale / max(0.1, -mv.z);
+  gl_PointSize = min(uMax, size * uScale / max(0.1, -mv.z));
   gl_Position = projectionMatrix * mv;
 }`;
 const FS = `
@@ -49,7 +53,7 @@ class Particles {
     geo.setAttribute('size', new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('alpha', new THREE.BufferAttribute(this.alpha, 1).setUsage(THREE.DynamicDrawUsage));
     this.geo = geo;
-    this.mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: { uTex: { value: tex }, uScale: { value: 500 } }, transparent: true, depthWrite: false, blending });
+    this.mat = new THREE.ShaderMaterial({ vertexShader: VS, fragmentShader: FS, uniforms: { uTex: { value: tex }, uScale: { value: 500 }, uMax: { value: 400 } }, transparent: true, depthWrite: false, blending });
     this.points = new THREE.Points(geo, this.mat);
     this.points.frustumCulled = false;
     this.points.renderOrder = blending === THREE.AdditiveBlending ? 3 : 2;
@@ -281,10 +285,11 @@ export class Effects {
     }
     // 破片手榴弾
     this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, life: 0.18, size: 7, size1: 12, r: 1, g: 0.85, b: 0.5 });
-    for (let i = 0; i < 26; i++) this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: rnd(6), vy: Math.random() * 6, vz: rnd(6), life: 0.4 + Math.random() * 0.4, size: 1.2, size1: 2.4, r: 1, g: 0.5 + Math.random() * 0.3, b: 0.15, drag: 3 });
-    for (let i = 0; i < 40; i++) this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: rnd(25), vy: Math.random() * 18, vz: rnd(25), life: 0.6, size: 0.06, r: 1, g: 0.8, b: 0.4, grav: 15 });
-    for (let i = 0; i < 30; i++) this.norm.emit({ x: p.x, y: p.y + 0.4, z: p.z, vx: rnd(4), vy: 1 + Math.random() * 3, vz: rnd(4), life: 3 + Math.random() * 3, size: 1.2, size1: 5, r: 0.25, g: 0.23, b: 0.21, alpha: 0.7, drag: 1.2, fadeIn: 0.2 });
-    for (let i = 0; i < 20; i++) this.norm.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: rnd(10), vy: 4 + Math.random() * 8, vz: rnd(10), life: 1.5, size: 0.08, r: 0.2, g: 0.18, b: 0.15, alpha: 1, grav: 14 });
+    const k = LITE ? 0.4 : 1;
+    for (let i = 0; i < 26 * k; i++) this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: rnd(6), vy: Math.random() * 6, vz: rnd(6), life: 0.4 + Math.random() * 0.4, size: 1.2, size1: 2.4, r: 1, g: 0.5 + Math.random() * 0.3, b: 0.15, drag: 3 });
+    for (let i = 0; i < 40 * k; i++) this.add.emit({ x: p.x, y: p.y + 0.3, z: p.z, vx: rnd(25), vy: Math.random() * 18, vz: rnd(25), life: 0.6, size: 0.06, r: 1, g: 0.8, b: 0.4, grav: 15 });
+    for (let i = 0; i < 30 * k; i++) this.norm.emit({ x: p.x, y: p.y + 0.4, z: p.z, vx: rnd(4), vy: 1 + Math.random() * 3, vz: rnd(4), life: 3 + Math.random() * 3, size: 1.2, size1: 5, r: 0.25, g: 0.23, b: 0.21, alpha: 0.7, drag: 1.2, fadeIn: 0.2 });
+    for (let i = 0; i < 20 * k; i++) this.norm.emit({ x: p.x, y: p.y + 0.2, z: p.z, vx: rnd(10), vy: 4 + Math.random() * 8, vz: rnd(10), life: 1.5, size: 0.08, r: 0.2, g: 0.18, b: 0.15, alpha: 1, grav: 14 });
     this.flashLight(new THREE.Vector3(p.x, p.y + 1, p.z), '#ffa040', 40, 0.35, 30);
     this.decal({ x: p.x, y: 0.03, z: p.z }, { x: 0, y: 1, z: 0 }, 22);
   }
@@ -302,6 +307,9 @@ export class Effects {
     const h = innerHeight;
     this.add.mat.uniforms.uScale.value = h * 0.9;
     this.norm.mat.uniforms.uScale.value = h * 0.9;
+    // 粒子 1 つの最大サイズ（画面の高さに対する割合）
+    this.add.mat.uniforms.uMax.value = h * (LITE ? 0.35 : 0.6);
+    this.norm.mat.uniforms.uMax.value = h * (LITE ? 0.3 : 0.6);
     for (const T of this.tracers) {
       if (!T.active) continue;
       T.t += dt * T.speed;
@@ -324,8 +332,9 @@ export class Effects {
     for (let i = this.smokeSources.length - 1; i >= 0; i--) {
       const s = this.smokeSources[i];
       s.t -= dt; s.acc += dt;
-      while (s.acc > 0.05) {
-        s.acc -= 0.05;
+      const every = LITE ? 0.12 : 0.05;
+      while (s.acc > every) {
+        s.acc -= every;
         if (s.t > 3) this.norm.emit({ x: s.x + rnd(0.3), y: s.y + 0.3, z: s.z + rnd(0.3), vx: rnd(s.r * 0.4), vy: 0.6 + Math.random() * 0.8, vz: rnd(s.r * 0.4), life: 7 + Math.random() * 3, size: 2, size1: s.r * 1.6, r: 0.78, g: 0.78, b: 0.76, alpha: 0.75, drag: 0.6, fadeIn: 0.6 });
       }
       if (s.t <= 0) this.smokeSources.splice(i, 1);
