@@ -44,8 +44,10 @@ export class ViewModel {
   }
   makeArm(sleeve, glove) {
     const g = new THREE.Group();
-    const upper = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.075, 1).translate(0, 0, -0.5), sleeve);
-    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.07, 0.1), glove);
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.046, 1, 10).rotateX(Math.PI / 2).translate(0, 0, -0.5), sleeve);
+    const hand = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.065, 0.09), glove);
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.04, 10).rotateX(Math.PI / 2), glove);
+    hand.add(cuff); cuff.position.z = 0.05;
     g.add(upper, hand);
     return { g, upper, hand };
   }
@@ -95,7 +97,7 @@ export class ViewModel {
     const bobA = (s.moving && s.onGround ? (s.sprint ? 1 : 0.5) : 0) * (1 - adsK * 0.85);
     const bx = Math.sin(this.bob) * 0.012 * bobA, by = -Math.abs(Math.cos(this.bob)) * 0.012 * bobA;
     // 位置
-    const adsPos = new THREE.Vector3(0, -sightY, -0.24 - (this.def.weapon.class === 'pistol' ? 0.06 : 0));
+    const adsPos = new THREE.Vector3(0, -sightY, this.def.weapon.class === 'pistol' ? -0.36 : -0.2);
     const p = HIP.clone().lerp(adsPos, adsK);
     p.x += bx + this.swayX * (1 - adsK * 0.7); p.y += by + this.swayY * (1 - adsK * 0.7);
     p.z += this.kick * 0.045;

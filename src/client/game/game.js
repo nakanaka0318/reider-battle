@@ -140,7 +140,17 @@ export class Game {
     // ウォームアップ（シェーダーコンパイル）
     this.loadText.textContent = 'シェーダーを準備中…';
     await frame();
+    this.effects.setPrewarm(true);
+    const ground0 = { id: '__warm', item: 'bandage', count: 1, x: this.player.pos.x, y: -20, z: this.player.pos.z, rot: 0 };
+    this.addGround(ground0);
+    this.flashlight.intensity = 1;
     R.compile(this.scene, this.camera);
+    R.compile(this.vm.scene, this.vm.camera);
+    // 実際に 1 フレーム描画してシェーダーとテクスチャをGPUへ
+    this.render(0.016);
+    this.flashlight.intensity = 0;
+    this.effects.setPrewarm(false);
+    this.removeGround('__warm');
     this.loadingEl.innerHTML = '';
     this.loadingEl.append(
       h('div', { class: 'logo', style: { fontSize: '42px' } }, this.map.name),
@@ -189,7 +199,7 @@ export class Game {
     const inp = this.input;
     const P = this.player;
     // UI 系キー
-    if (inp.pressed('Tab')) this.toggleInv();
+    if (inp.pressed('Tab') || (this.rinv.open && inp.pressed('Escape'))) this.toggleInv();
     if (inp.pressed('KeyM')) this.toggleMap();
     if (inp.pressed('KeyO')) { this.exHeld = !this.exHeld; this.hud.showExtracts(this, this.exHeld); }
     if (this.exHeld && Math.floor(this.time) !== this._exT) { this._exT = Math.floor(this.time); this.hud.showExtracts(this, true); }
@@ -374,6 +384,7 @@ export class Game {
   onSnap(m) {
     const now = performance.now() / 1000;
     this.timeLeft = m.left;
+    this.serverTime = m.time;
     const seen = new Set();
     for (const e of m.a) {
       const [id, x, y, z, yaw, pitch, f, slot] = e;
@@ -383,7 +394,7 @@ export class Game {
       if (!a) continue;
       a.buf.push({ t: now, x, y, z, yaw, pitch, f, slot });
       if (a.buf.length > 30) a.buf.shift();
-      a.lastSeen = now;
+      a.lastSeen = m.time;
       a.dead = !!(f & 8);
     }
     // 投擲物
@@ -541,7 +552,7 @@ export class Game {
       const B = a.buf;
       if (!B.length) { a.view.root.visible = false; continue; }
       // 長時間更新がない＝脱出済み
-      if (now - a.lastSeen > 3 && !a.dead) { a.view.dispose(); this.audio.stopLoop(id); this.actors.delete(id); continue; }
+      if (this.serverTime - a.lastSeen > 3 && !a.dead) { a.view.dispose(); this.audio.stopLoop(id); this.actors.delete(id); continue; }
       a.view.root.visible = true;
       let s0 = B[0], s1 = B[0];
       for (let i = B.length - 1; i >= 0; i--) { if (B[i].t <= rt) { s0 = B[i]; s1 = B[i + 1] || B[i]; break; } }
@@ -736,7 +747,7 @@ export class Game {
       return h('div', { class: 'slider-row' }, label, h('input', { type: 'range', min, max, step, value: S[key], oninput: (e) => { S[key] = parseFloat(e.target.value); val.textContent = S[key]; onChange?.(S[key]); } }), val);
     };
     this.pauseEl = h('div', { class: 'pause' }, h('div', { class: 'panel box' },
-      h('div', { class: 'panel-h' }, '一時停止', h('span', { class: 'sub' }, this.net.online ? '※オンラインではゲームは止まりません' : 'オフライン（AI は動き続けます）')),
+      h('div', { class: 'panel-h' }, '一時停止', h('span', { class: 'sub' }, this.net.online ? '※オンラインではゲームは止まりません' : 'オフライン：レイドは停止中')),
       h('div', { class: 'panel-b' },
         slider('マウス感度', 'sens', 0.2, 3, 0.05),
         slider('ADS 感度倍率', 'adsSensMul', 0.3, 1.5, 0.05),
@@ -752,8 +763,9 @@ export class Game {
           h('button', { class: 'btn danger', onclick: () => { modal('レイドを放棄', h('div', {}, '放棄すると死亡扱いになり、持ち込んだ装備を失います（セキュアコンテナを除く）。'), [{ text: 'キャンセル' }, { text: '放棄する', cls: 'danger', fn: () => this.abandon() }]); } }, 'レイドを放棄')),
       )));
     this.root.append(this.pauseEl);
+    if (!this.net.online) this.net.paused = true;
   }
-  closePause() { this.pauseEl?.remove(); this.pauseEl = null; this.input.lock(); }
+  closePause() { this.pauseEl?.remove(); this.pauseEl = null; this.net.paused = false; this.input.lock(); }
   abandon() {
     this.closePause();
     const sec = this.inv?.equip?.secure || null;

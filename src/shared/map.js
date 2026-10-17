@@ -333,13 +333,14 @@ export function buildMap(seed = 1337) {
 
   // ------------------------------------------------------------ 道路
   M.roads.push(
-    { x0: -190, z0: 0, x1: 190, z1: 0, w: 10 },
-    { x0: 40, z0: -192, x1: 40, z1: 172, w: 9 },
+    { x0: -186, z0: 0, x1: 104, z1: 0, w: 10 },
+    { x0: 40, z0: -192, x1: 40, z1: 4, w: 9 },
+    { x0: 46, z0: 0, x1: 46, z1: 172, w: 9 },
     { x0: -165, z0: -120, x1: 185, z1: -120, w: 8 },
-    { x0: -120, z0: -120, x1: -120, z1: 125, w: 8 },
+    { x0: -112, z0: -120, x1: -112, z1: 80, w: 8 },
     { x0: -160, z0: 112, x1: 175, z1: 112, w: 9 },
     { x0: -10, z0: 0, x1: -10, z1: 26, w: 7 },
-    { x0: 40, z0: 50, x1: 92, z1: 50, w: 7 },
+    { x0: 46, z0: 50, x1: 92, z1: 50, w: 7 },
   );
 
   // ------------------------------------------------------------ 工場（中央南）
@@ -487,8 +488,8 @@ export function buildMap(seed = 1337) {
     // ヘスコ防壁（東と南にゲート）
     F.hesco(bx0, bz0, bx1, bz0 + 1.4);
     F.hesco(bx0, bz0, bx0 + 1.4, bz1);
-    F.hesco(bx0, bz1 - 1.4, -126, bz1);
-    F.hesco(-114, bz1 - 1.4, bx1, bz1);
+    F.hesco(bx0, bz1 - 1.4, -118, bz1);
+    F.hesco(-106, bz1 - 1.4, bx1, bz1);
     F.hesco(bx1 - 1.4, bz0, bx1, -126);
     F.hesco(bx1 - 1.4, -114, bx1, bz1);
     // 兵舎 3 棟
@@ -564,7 +565,7 @@ export function buildMap(seed = 1337) {
     cont('supply_drop', -118, 0, -95, 0);
     F.lamp(-120, -135); F.lamp(-150, -135); F.lamp(-95, -100); F.lamp(-160, -100);
     // テント
-    for (const [tx, tz] of [[-98, -110], [-98, -98], [-110, -88]]) {
+    for (const [tx, tz] of [[-98, -110], [-98, -98], [-86, -96]]) {
       box(tx - 3, 0, tz - 2.5, tx + 3, 0.1, tz + 2.5, 'tarp', '#4a5a3a');
       box(tx - 3, 0.1, tz - 2.5, tx + 3, 2.4, tz - 2.3, 'tarp', '#56603f');
       box(tx - 3, 0.1, tz + 2.3, tx + 3, 2.4, tz + 2.5, 'tarp', '#56603f');
@@ -663,7 +664,7 @@ export function buildMap(seed = 1337) {
     noTree(lx0, lz0, lx1, lz1);
     F.fence('x', lz0, lx0, lx1, 3.2, [[120, 8]]);
     F.fence('x', lz1, lx0, lx1, 3.2, [[150, 6]]);
-    F.fence('z', lx0, lz0, lz1, 3.2, [[50, 8]]);
+    F.fence('z', lx0, lz0, lz1, 3.2, [[50, 8], [0, 10]]);
     F.fence('z', lx1, lz0, lz1, 3.2);
     // 本館 2F
     const x0 = 110, z0 = 4, x1 = 162, z1 = 36, fh = 4;
@@ -829,7 +830,7 @@ export function buildMap(seed = 1337) {
     // 港湾の照明
     for (let i = 0; i < 6; i++) F.lamp(-60 + i * 28, 116);
     for (let i = 0; i < 6; i++) cont(rng.pick(['crate', 'toolbox', 'duffel']), -60 + rng() * 100, 0, 117 + rng() * 2, rng.int(0, 3));
-    F.truck(30, 130, 0, '#2a4a7a'); F.truck(44, 145, 0, '#7a2a20');
+    F.truck(30, 130, 0, '#2a4a7a'); F.truck(56, 145, 0, '#7a2a20');
   }
 
   // ------------------------------------------------------------ 北部：線路とトンネル脱出、ARC 墜落地点
@@ -856,7 +857,7 @@ export function buildMap(seed = 1337) {
     box(-22, 2.5, -112, -16, 4.2, -108, 'arc_metal');
     box(-32, 0, -100, -28, 1.4, -96, 'arc_metal');
     cont('arc_cache', -12, 0, -110, 0); cont('arc_cache', -28, 0, -116, 0); cont('arc_cache', -30, 0, -94, 0);
-    F.rockCluster(-8, -98, 5); F.rockCluster(-36, -120, 5);
+    F.rockCluster(-8, -98, 5); F.rockCluster(-38, -132, 5);
     noTree(-40, -125, 0, -90);
     M.pois.push({ id: 'crash_s', name: '南の墜落機', x: -80, z: 150, r: 14, tags: ['machine'], tier: 3 });
     M.machineZones.push({ x: -80, z: 150, r: 18, n: 3, heavy: 0 });
@@ -887,7 +888,7 @@ export function buildMap(seed = 1337) {
   // ------------------------------------------------------------ 散在する小物（岩・瓦礫）
   for (let i = 0; i < 40; i++) {
     const x = (rng() - 0.5) * 360, z = (rng() - 0.5) * 340;
-    if (inNoTree(M, x, z) || nearRoad(M, x, z, 7)) continue;
+    if (inNoTree(M, x, z) || nearRoad(M, x, z, 12)) continue;
     F.rockCluster(x, z, 2 + rng() * 4);
     M.noTree.push([x - 4, z - 4, x + 4, z + 4]);
   }
@@ -919,11 +920,11 @@ export function buildMap(seed = 1337) {
 
   // ------------------------------------------------------------ スポーン地点
   M.spawns.push(
-    { x: -185, z: 30, yaw: -Math.PI / 2 }, { x: -175, z: -50, yaw: -Math.PI / 2 }, { x: -60, z: -185, yaw: Math.PI },
-    { x: 10, z: -185, yaw: Math.PI }, { x: 90, z: -186, yaw: Math.PI }, { x: 186, z: -60, yaw: Math.PI / 2 },
-    { x: 186, z: 90, yaw: Math.PI / 2 }, { x: 150, z: 165, yaw: 0 }, { x: -100, z: 168, yaw: 0 },
-    { x: -185, z: 140, yaw: -Math.PI / 2 }, { x: 70, z: -60, yaw: Math.PI }, { x: -30, z: 110, yaw: 0 },
+    { x: -188, z: -25, yaw: -Math.PI / 2 }, { x: -40, z: -188, yaw: Math.PI }, { x: 10, z: -186, yaw: Math.PI },
+    { x: 186, z: -60, yaw: Math.PI / 2 }, { x: 186, z: 128, yaw: Math.PI / 2 }, { x: 172, z: 170, yaw: Math.PI / 4 },
+    { x: -140, z: 168, yaw: 0 }, { x: -188, z: 160, yaw: -Math.PI / 2 },
   );
+
 
   return M;
 }

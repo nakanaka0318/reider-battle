@@ -5,7 +5,7 @@ import { dirFromYawPitch, yawTo, angleDiff, clamp } from './math.js';
 import { allItems, autoInsert, removeItem, countAmmo, listGrids, findItem } from './inventory.js';
 import { totalHp, TOTAL_HP, humanHeight, moveFactor } from './combat.js';
 
-const SKILL = { scav: 0.42, raider1: 0.62, raider2: 0.78, boss: 0.9, guard: 0.82 };
+const SKILL = { scav: 0.36, raider1: 0.7, raider2: 0.82, boss: 0.9, guard: 0.8 };
 const RANGE = { pistol: 30, smg: 45, shotgun: 22, rifle: 85, dmr: 130, sniper: 180, lmg: 95 };
 const TOD_SIGHT = { day: 1, dusk: 0.75, night: 0.42 };
 
@@ -63,7 +63,7 @@ export function aiThink(raid, a) {
   const isM = a.kind === 'machine';
   const M = isM ? MACHINES[a.mtype] : null;
   const tod = TOD_SIGHT[raid.opts.timeOfDay] ?? 1;
-  const baseRange = isM ? M.sight : a.kind === 'scav' ? 95 : 120;
+  const baseRange = isM ? M.sight : a.kind === 'scav' ? 75 : 120;
   const fov = isM ? (a.mtype === 'sentinel' ? 0.5 : -0.2) : a.kind === 'scav' ? 0.35 : 0.2; // cos
 
   // 知覚
@@ -72,6 +72,8 @@ export function aiThink(raid, a) {
   const cand = [];
   for (const t of raid.actors.values()) {
     if (!t.alive || t.extracted || !raid.hostile(a, t)) continue;
+    // スポーン直後のレイダー同士は互いを無視（同じ地点に出現した場合の即死を防ぐ）
+    if ((a.kind === 'raider' || a.kind === 'player') && (t.kind === 'raider' || t.kind === 'player') && raid.time - Math.max(a.spawnT, t.spawnT) < 12 && t.lastHurt < 0) continue;
     const dx = t.pos.x - a.pos.x, dz = t.pos.z - a.pos.z;
     const d = Math.hypot(dx, dz);
     let range = baseRange * (isM ? Math.max(0.7, tod) : tod);
@@ -120,6 +122,14 @@ export function aiThink(raid, a) {
     }
   }
 
+  // 縄張りから離れすぎたら戻る
+  if (leashed(a) && outOfLeash(a, a.pos, a.kind === 'machine' ? 35 : 70) && !ai.seen) {
+    ai.target = null; ai.state = 'idle'; ai.alerted = false; ai.investigate = null; ai.flyGoal = null;
+    const z = ai.zone;
+    if (isM && M.fly) ai.flyGoal = { x: z.x, z: z.z };
+    else if (!ai.path) planPath(raid, a, z.x, z.z, 120);
+    return;
+  }
   if (isM) return thinkMachine(raid, a, M);
   thinkHuman(raid, a);
 }
@@ -153,7 +163,8 @@ function thinkHuman(raid, a) {
   }
   // 回復
   const hurt = hpFrac(a) < 0.6 || Object.values(a.health.bleed).some((v) => v) || Object.keys(a.health.fracture).length;
-  if (hurt && !a.w.useItem && raid.time > ai.healCooldown && (!ai.seen || raid.time - ai.lastSeenT > 1.5)) {
+  const heavy = Object.values(a.health.bleed).some((v) => v === 2);
+  if (hurt && !a.w.useItem && raid.time > ai.healCooldown && (!ai.seen || raid.time - ai.lastSeenT > 1.5 || (heavy && raid.time - a.lastHurt > 1.2))) {
     const med = pickMed(a);
     if (med) {
       raid.startUse(a, med.uid);
@@ -163,8 +174,17 @@ function thinkHuman(raid, a) {
   // 状態遷移
   if (ai.state === 'combat') {
     if (!t || !t.alive) { ai.state = 'idle'; ai.target = null; return; }
+    // 重装の機械には勝ち目がない：距離を取る
+    if (t.kind === 'machine' && t.mtype === 'sentinel' && a.kind !== 'boss') {
+      const wpen = w?.mag ? ITEMS[w.mag.ammo]?.ammo?.pen || 0 : 0;
+      if (wpen < 45 && raid.time > (ai.fleeT || 0)) {
+        const ang = Math.atan2(a.pos.z - t.pos.z, a.pos.x - t.pos.x) + (raid.rng() - 0.5);
+        const p = raid.world.nearestWalkable(a.pos.x + Math.cos(ang) * 45, a.pos.z + Math.sin(ang) * 45, 10);
+        if (p) { planPath(raid, a, p.x, p.z, 60); ai.fleeT = raid.time + 6; }
+      }
+    }
     if (!ai.seen && raid.time - ai.lastSeenT > 2.5) {
-      ai.state = 'search'; ai.searchUntil = raid.time + 14 + raid.rng() * 10; ai.investigate = ai.lastSeen; ai.path = null;
+      ai.state = 'search'; ai.searchUntil = raid.time + 14 + raid.rng() * 10; ai.investigate = outOfLeash(a, ai.lastSeen, 50) ? null : ai.lastSeen; ai.path = null;
     }
     // 手榴弾
     if (!ai.seen && raid.time > ai.nadeCooldown && a.kind !== 'scav' && ai.lastSeen) {
@@ -178,12 +198,12 @@ function thinkHuman(raid, a) {
       const d = Math.hypot(t.pos.x - a.pos.x, t.pos.z - a.pos.z);
       const cls = w ? ITEMS[w.id].weapon.class : 'pistol';
       const pref = RANGE[cls] * 0.6;
-      if (d > RANGE[cls] * 0.95 && raid.time > (ai.repathT || 0)) { planPath(raid, a, t.pos.x, t.pos.z, 60); ai.repathT = raid.time + 2.5; }
+      if (d > RANGE[cls] * 0.95 && raid.time > (ai.repathT || 0) && !outOfLeash(a, t.pos, 50)) { planPath(raid, a, t.pos.x, t.pos.z, 60); ai.repathT = raid.time + 2.5; }
       else if (d < pref * 1.1) ai.path = null;
       ai.wantCrouch = d > 30 && raid.rng() < 0.4 && cls !== 'shotgun';
     } else if (ai.lastSeen && raid.time > (ai.repathT || 0) && raid.time - ai.lastSeenT > 1) {
       // 遮蔽物の向こうへ回り込む
-      if (a.kind !== 'boss' && raid.rng() < 0.5) planPath(raid, a, ai.lastSeen.x, ai.lastSeen.z, 50);
+      if (a.kind !== 'boss' && raid.rng() < 0.5 && !outOfLeash(a, ai.lastSeen, 50)) planPath(raid, a, ai.lastSeen.x, ai.lastSeen.z, 50);
       ai.repathT = raid.time + 3;
     }
     return;
@@ -237,9 +257,19 @@ function thinkRaider(raid, a) {
   const ai = a.ai;
   if (ai.state === 'extract' || raid.time > ai.extractAt || bagFull(a) > 0.85 || raid.timeLeft < 120) {
     if (ai.state !== 'extract') { ai.state = 'extract'; ai.path = null; ai.exitGoal = null; }
+    if (ai.pathFail > 4) {
+      // 経路が見つからない：別の脱出地点を試し、少し移動して位置を変える
+      (ai.badExits ||= new Set()).add(ai.exitGoal?.id);
+      ai.exitGoal = null; ai.pathFail = 0;
+      const p = raid.randomPointIn(a.pos.x, a.pos.z, 12);
+      if (p) { ai.path = [p]; ai.pi = 0; }
+      if (ai.badExits.size > 4) ai.badExits.clear();
+      return;
+    }
     if (!ai.exitGoal) {
       let best = null, bd = 1e9;
       for (const e of raid.extracts) {
+        if (ai.badExits?.has(e.id)) continue;
         if (!e.open || (e.type !== 'always' && e.type !== 'random' && e.type !== 'switch')) continue;
         const d = Math.hypot(e.x - a.pos.x, e.z - a.pos.z);
         if (d < bd) { bd = d; best = e; }
@@ -294,11 +324,11 @@ function thinkRaider(raid, a) {
 function bagFull(a) {
   let used = 0, cap = 0;
   for (const g of listGrids(a.inv)) {
-    if (g.owner && ITEMS[g.owner.id].cat === 'secure') continue;
+    if (g.slot !== 'backpack') continue;
     cap += g.grid.w * g.grid.h;
     for (const it of g.grid.items) used += ITEMS[it.id].w * ITEMS[it.id].h;
   }
-  return cap ? used / cap : 1;
+  return cap ? used / cap : 0;
 }
 
 function botLootContainer(raid, a, ct) {
@@ -447,7 +477,7 @@ function botShoot(raid, a, t, yaw, pitch) {
   const dist = Math.hypot(t.pos.x - a.pos.x, t.pos.z - a.pos.z);
   if (dist > RANGE[def.weapon.class] * 1.6) return;
   // 反応時間
-  const react = 0.9 - ai.skill * 0.6;
+  const react = 1.15 - ai.skill * 0.7;
   if (raid.time - ai.firstSeenT < react) return;
   if (raid.time < ai.pauseUntil) return;
   // 照準が合っているか
@@ -456,12 +486,13 @@ function botShoot(raid, a, t, yaw, pitch) {
   if (raid.time < a.w.nextShot) return;
   // 照準誤差：時間とともに収束
   const onT = raid.time - ai.firstSeenT;
-  const conv = Math.max(0.25, 1 - onT / (3.5 - ai.skill * 2));
-  const base = (1.15 - ai.skill) * 0.055 * conv * (1 + dist / 60) * (t.moving ? 1.3 : 1) * (a.moving ? 1.4 : 1);
+  const conv = Math.max(0.55 - ai.skill * 0.35, 1 - onT / (4.5 - ai.skill * 2.5));
+  const base = (1.2 - ai.skill) * 0.06 * conv * (1 + dist / 50) * (t.moving ? (t.sprint ? 1.6 : 1.3) : 1) * (a.moving ? 1.4 : 1) * (t.crouch ? 0.9 : 1);
   const ex = (raid.rng() - 0.5) * 2 * base + ai.aimErrX * conv * 0.4;
   const ey = (raid.rng() - 0.5) * 2 * base * 0.7 + ai.aimErrY * conv * 0.4;
   const d = dirFromYawPitch(a.yaw + ex, a.pitch + ey);
   const o = eye(a);
+  if (allyInLine(raid, a, o, t, dist)) { ai.pauseUntil = raid.time + 0.5; ai.strafeT = 0; return; }
   const auto = def.weapon.modes.includes('auto') && dist < 45;
   if (raid.fireWeapon(a, o, d)) {
     if (auto) {
@@ -472,6 +503,21 @@ function botShoot(raid, a, t, yaw, pitch) {
     }
   }
   void st;
+}
+
+// 射線上に味方がいるか
+function allyInLine(raid, a, o, t, dist) {
+  const dx = t.pos.x - o.x, dz = t.pos.z - o.z;
+  const L = Math.hypot(dx, dz) || 1;
+  for (const b of raid.actors.values()) {
+    if (b === a || b === t || !b.alive || b.team !== a.team) continue;
+    const bx = b.pos.x - o.x, bz = b.pos.z - o.z;
+    const along = (bx * dx + bz * dz) / L;
+    if (along < 0.5 || along > dist) continue;
+    const perp = Math.abs(bx * dz - bz * dx) / L;
+    if (perp < 0.9) return true;
+  }
+  return false;
 }
 
 function updateMachine(raid, a, dt) {
@@ -587,9 +633,18 @@ export function aiOnDamage(raid, a, attacker) {
   }
 }
 
+function leashed(a) { return a.kind !== 'raider' && a.ai.zone; }
+function outOfLeash(a, p, extra = 50) {
+  const z = a.ai.zone;
+  if (!z || a.kind === 'raider') return false;
+  return Math.hypot(p.x - z.x, p.z - z.z) > z.r + extra;
+}
+
 export function aiOnNoise(raid, a, p, src, kind, frac) {
   const ai = a.ai;
   if (ai.state === 'combat') return;
+  if (outOfLeash(a, p, a.kind === 'machine' ? 35 : 45)) return;
+  if (a.kind === 'raider' && Math.hypot(p.x - a.pos.x, p.z - a.pos.z) > 90) return;
   if (src && !raid.hostile(a, src)) return;
   if (kind === 'step' && frac > 0.7) return;
   if (kind === 'step' && raid.rng() > 0.5) return;

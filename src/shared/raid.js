@@ -39,6 +39,7 @@ export class Raid {
     this.unlocked = new Set();
     this.extracts = this.map.extracts.map((e) => ({ ...e, open: e.type !== 'switch' && (e.type !== 'random' || this.rng() < (e.chance ?? 0.5)) }));
     this.pathBudget = 0;
+    this.spawnPoints = this.genSpawnPoints();
     this.spawnLoose();
     this.spawnNPCs();
     this.lateSpawns = [];
@@ -46,6 +47,26 @@ export class Raid {
   }
 
   // ---------------------------------------------------------------- 生成
+  // マップ外周に沿って、危険地帯から離れたスポーン候補を作る
+  genSpawnPoints() {
+    const out = [];
+    const H = this.map.half - 14;
+    const ok = (x, z) => {
+      if (!this.world.walkable(x, z)) return false;
+      for (const zn of this.map.scavZones) if (Math.hypot(zn.x - x, zn.z - z) < zn.r + 32) return false;
+      for (const zn of this.map.machineZones) if (Math.hypot(zn.x - x, zn.z - z) < zn.r + (zn.heavy ? 60 : 12)) return false;
+      if (z > this.map.water.z - 8) return false;
+      return true;
+    };
+    for (let t = -H; t <= H; t += 12) {
+      for (const [x, z] of [[t, -H], [t, Math.min(H, this.map.water.z - 10)], [-H, t], [H, t]]) {
+        if (!ok(x, z)) continue;
+        out.push({ x, z, yaw: Math.atan2(x, z) }); // 中心を向く
+      }
+    }
+    return out.length >= 6 ? out : this.map.spawns;
+  }
+
   spawnLoose() {
     const rng = this.rng;
     for (const s of this.map.loose) {
@@ -98,11 +119,25 @@ export class Raid {
       }
     }
     // AI レイダー（オフラインは全員 NPC）
-    const spawns = [...this.map.spawns].sort(() => rng() - 0.5);
+    const spawns = [...this.spawnPoints].sort(() => rng() - 0.5);
+    const usedSp = [];
+    const farSpawn = () => {
+      let best = spawns[0], bd = -1;
+      for (const s of spawns) {
+        let md = 1e9;
+        for (const u of usedSp) md = Math.min(md, Math.hypot(u.x - s.x, u.z - s.z));
+        for (const z of this.map.scavZones) md = Math.min(md, (Math.hypot(z.x - s.x, z.z - s.z) - z.r) * 1.5);
+        for (const z of this.map.machineZones) if (z.heavy) md = Math.min(md, (Math.hypot(z.x - s.x, z.z - s.z) - z.r - 60) * 1.5);
+        md += rng() * 15;
+        if (md > bd) { bd = md; best = s; }
+      }
+      usedSp.push(best);
+      return best;
+    };
     for (let i = 0; i < o.raiders; i++) {
-      const sp = spawns[i % spawns.length];
+      const sp = farSpawn();
       const tier = rng() < 0.35 ? 'raider1' : rng() < 0.8 ? 'raider2' : 'raider2';
-      const delay = i < Math.ceil(o.raiders * 0.7) ? 0 : 60 + rng() * 360;
+      const delay = i < Math.ceil(o.raiders * 0.5) ? 0 : 45 + rng() * 420;
       const spawn = () => {
         const p = this.world.nearestWalkable(sp.x + (rng() - 0.5) * 6, sp.z + (rng() - 0.5) * 6, 8) || sp;
         this.spawnBot('raider', p, { tier, yaw: sp.yaw });
@@ -129,6 +164,7 @@ export class Raid {
       slot: 'primary', phys: { vy: 0, onGround: true }, alive: true, light: false,
       w: { nextShot: 0, reloadUntil: 0, useUntil: 0, useItem: null, mode: 0, charge: 0 },
       stats: { kills: 0, pmcKills: 0, scavKills: 0, machineKills: 0, damage: 0, shots: 0, hits: 0, looted: 0 },
+      spawnT: this.time,
       gearSig: '', lastHurt: -99, extractT: 0, extractId: null,
       ...props.extra,
     };
@@ -164,12 +200,17 @@ export class Raid {
 
   // ---------------------------------------------------------------- クライアント
   addClient(cid, profile, send) {
-    const used = [...this.actors.values()].filter((a) => a.kind === 'player' || a.kind === 'raider');
-    const spawns = [...this.map.spawns].sort(() => this.rng() - 0.5);
+    // 他のプレイヤー・NPC から最も離れたスポーン地点を選ぶ
+    const others = [...this.actors.values()].filter((a) => a.alive);
+    const spawns = [...this.spawnPoints].sort(() => this.rng() - 0.5);
     let sp = spawns[0], best = -1;
     for (const s of spawns) {
       let md = 1e9;
-      for (const u of used) md = Math.min(md, Math.hypot(u.pos.x - s.x, u.pos.z - s.z));
+      for (const u of others) {
+        const w = u.kind === 'player' || u.kind === 'raider' ? 1 : u.mtype === 'sentinel' ? 2.5 : 1.6;
+        md = Math.min(md, Math.hypot(u.pos.x - s.x, u.pos.z - s.z) / w);
+      }
+      md += this.rng() * 10;
       if (md > best) { best = md; sp = s; }
     }
     const p = this.world.nearestWalkable(sp.x, sp.z, 6) || sp;
@@ -193,6 +234,8 @@ export class Raid {
       gates: this.extracts.filter((e) => e.type === 'switch' && e.open).map((e) => e.id),
     });
     for (const o of this.actors.values()) this.sendActorInfo(c, o);
+    // 途中参加者には死体も含めた全アクターの状態を送る
+    send({ t: 'snap', time: r2(this.time), left: r2(this.timeLeft), a: [...this.actors.values()].map((o) => this.snapEntry(o)), n: [], ev: [] });
     this.emit({ t: 'feed', msg: `${a.name} がレイドに参加した`, kind: 'join' });
     return a;
   }
@@ -344,6 +387,7 @@ export class Raid {
     let bestT = wh ? wh.t : maxR, best = null;
     for (const t of this.actors.values()) {
       if (t === shooter || !t.alive || t.extracted) continue;
+      if (shooter.kind === 'machine' && t.kind === 'machine') continue;
       const dx = t.pos.x - o.x, dz = t.pos.z - o.z;
       if (dx * dx + dz * dz > (bestT + 5) ** 2) continue;
       if (t.kind === 'machine') {
@@ -396,7 +440,7 @@ export class Raid {
       let dmg = ammo.damage * (opts.dmgMul || 1);
       const p = opts.explosive ? 1 : Math.max(0.03, Math.min(0.98, 0.5 + (ammo.pen - cls * 10) / 18));
       let blocked = false;
-      if (this.rng() > p) { dmg *= 0.12; blocked = true; }
+      if (this.rng() > p) { dmg *= cls >= 4 ? 0.04 : 0.1; blocked = true; }
       if (zone === 'core') dmg *= 1.6;
       if (opts.emp) dmg = opts.emp;
       t.mhp[zone] = Math.max(0, (t.mhp[zone] ?? 0) - dmg);
@@ -788,6 +832,7 @@ export class Raid {
   updateExtracts(dt) {
     for (const a of this.actors.values()) {
       if (!a.alive || a.extracted || (a.kind !== 'player' && a.kind !== 'raider')) continue;
+      if (a.ai && a.ai.state !== 'extract') continue;
       let inZone = null;
       for (const e of this.extracts) {
         if (!e.open) continue;
@@ -877,16 +922,20 @@ export class Raid {
     }
   }
 
+  snapEntry(a) {
+    let f = 0;
+    if (a.crouch) f |= 1; if (a.sprint) f |= 2; if (a.ads) f |= 4; if (!a.alive) f |= 8;
+    if (a.moving) f |= 16; if (a.light) f |= 32; if (this.time < a.w.reloadUntil) f |= 64; if (a.w.useItem) f |= 128;
+    if (a.w.charge > 0) f |= 256; if (a.ai?.alerted) f |= 512;
+    return [a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), r3(a.yaw), r3(a.pitch), f, a.slot === 'primary' ? 0 : a.slot === 'secondary' ? 1 : 2];
+  }
+
   // スナップショット（全クライアント共通）と個別データ
   flush() {
     const acts = [];
     for (const a of this.actors.values()) {
       if (!a.alive && this.time - a.deathTime > 0.5 && a.snapDead) continue;
-      let f = 0;
-      if (a.crouch) f |= 1; if (a.sprint) f |= 2; if (a.ads) f |= 4; if (!a.alive) f |= 8;
-      if (a.moving) f |= 16; if (a.light) f |= 32; if (this.time < a.w.reloadUntil) f |= 64; if (a.w.useItem) f |= 128;
-      if (a.w.charge > 0) f |= 256; if (a.ai?.alerted) f |= 512;
-      acts.push([a.id, r2(a.pos.x), r2(a.pos.y), r2(a.pos.z), r3(a.yaw), r3(a.pitch), f, a.slot === 'primary' ? 0 : a.slot === 'secondary' ? 1 : 2]);
+      acts.push(this.snapEntry(a));
       if (!a.alive) a.snapDead = true;
     }
     const nades = this.grenades.map((g) => [g.id, r2(g.pos.x), r2(g.pos.y), r2(g.pos.z)]);

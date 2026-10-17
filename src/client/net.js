@@ -16,6 +16,7 @@ export class LocalTransport {
   }
   send(msg) { this.raid?.handle('local', msg); }
   update(dt) {
+    if (this.paused) { const o = this.inbox; this.inbox = []; return o; }
     this.acc += Math.min(dt, 0.25);
     let n = 0;
     while (this.acc >= TICK && n < 8) {

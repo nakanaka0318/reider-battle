@@ -9,6 +9,7 @@ export class Input {
     this.mdx = 0; this.mdy = 0; this.wheel = 0;
     this.locked = false;
     this.enabled = true;
+    this.ignoreUntil = 0;
     this.h = {
       kd: (e) => {
         if (e.target?.tagName === 'INPUT') return;
@@ -19,9 +20,18 @@ export class Input {
       ku: (e) => { this.keys.delete(e.code); },
       md: (e) => { if (!this.locked) return; this.mouse[e.button] = true; this.mouseJust[e.button] = true; },
       mu: (e) => { this.mouse[e.button] = false; },
-      mm: (e) => { if (!this.locked) return; this.mdx += e.movementX; this.mdy += e.movementY; },
+      mm: (e) => {
+        if (!this.locked) return;
+        // ロック直後や異常値（ブラウザのバグで巨大な値が来ることがある）は無視
+        if (performance.now() < this.ignoreUntil || Math.abs(e.movementX) > 400 || Math.abs(e.movementY) > 400) return;
+        this.mdx += e.movementX; this.mdy += e.movementY;
+      },
       wh: (e) => { if (this.locked) this.wheel += Math.sign(e.deltaY); },
-      pl: () => { this.locked = document.pointerLockElement === this.el; if (!this.locked) { this.mouse = [false, false, false]; } this.onLockChange?.(this.locked); },
+      pl: () => {
+        this.locked = document.pointerLockElement === this.el;
+        if (!this.locked) { this.mouse = [false, false, false]; } else { this.ignoreUntil = performance.now() + 120; this.mdx = 0; this.mdy = 0; }
+        this.onLockChange?.(this.locked);
+      },
       blur: () => { this.keys.clear(); this.mouse = [false, false, false]; },
       ctx: (e) => { if (this.locked) e.preventDefault(); },
     };

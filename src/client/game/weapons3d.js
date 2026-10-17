@@ -60,8 +60,9 @@ export function buildWeapon(itemOrId, opts = {}) {
     box(g, 0.032, 0.035, D.recv, 0, 0.055, -0.06, body);
     box(g, 0.03, 0.025, D.recv - 0.02, 0, 0.025, -0.06, dark);
     box(g, 0.028, D.grip, 0.045, 0, -0.03, 0.01, dark, 0.25);
-    box(g, 0.012, 0.012, 0.02, 0, 0.078, 0.01, metal);
-    box(g, 0.01, 0.012, 0.01, 0, 0.078, -0.13, metal);
+    box(g, 0.007, 0.012, 0.012, -0.007, 0.078, 0.01, metal); // 照門（左右に分かれたノッチ）
+    box(g, 0.007, 0.012, 0.012, 0.007, 0.078, 0.01, metal);
+    box(g, 0.004, 0.012, 0.008, 0, 0.078, -0.13, M('#e8e0a0', 0.4, 0.2, '#403a10')); // 照星
     // トリガーガード
     box(g, 0.006, 0.006, 0.05, 0, 0.0, -0.035, dark);
     muzzleZ = -0.06 - D.recv / 2 - 0.005;
@@ -84,8 +85,7 @@ export function buildWeapon(itemOrId, opts = {}) {
       cyl(g, 0.012, D.barrel * 0.8, 0, 0.012, bz0 - D.barrel * 0.4, metal); // チューブマガジン
       if (w.pump) box(g, 0.05, 0.04, 0.12, 0, 0.012, bz0 + 0.02, furn); // ポンプ
     }
-    // フロントサイト
-    box(g, 0.006, 0.03, 0.01, 0, 0.075, muzzleZ + 0.05, dark);
+    g.userData.frontZ = muzzleZ + 0.05;
     // グリップ
     const gz = bull ? -0.12 : 0.0;
     box(g, 0.035, D.grip, 0.045, 0, -0.045, gz + 0.02, dark, 0.3);
@@ -152,9 +152,17 @@ export function buildWeapon(itemOrId, opts = {}) {
       sightY = sy + 0.028;
     }
   } else if (cls !== 'pistol') {
-    // アイアンサイト（リア）
-    box(g, 0.02, 0.022, 0.012, 0, 0.03 + D.h / 2 + 0.03, bull ? 0.0 : -0.04, dark);
-    sightY = 0.03 + D.h / 2 + 0.038;
+    // アイアンサイト：リアはピープ（リング）、フロントはポスト
+    sightY = 0.03 + D.h / 2 + 0.04;
+    const rz = bull ? 0.0 : -0.04;
+    box(g, 0.016, sightY - (0.03 + D.h / 2) - 0.008, 0.012, 0, (sightY + 0.03 + D.h / 2) / 2 - 0.006, rz, dark);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0085, 0.003, 6, 16), dark);
+    ring.position.set(0, sightY, rz);
+    g.add(ring);
+    const fz = g.userData.frontZ ?? -0.4;
+    const postH = sightY - 0.04;
+    box(g, 0.012, postH * 0.6, 0.012, 0, 0.04 + postH * 0.3, fz, dark);
+    box(g, 0.0035, 0.014, 0.004, 0, sightY - 0.007, fz, M('#e8e0a0', 0.4, 0.2, '#403a10'));
   }
   const muzzleMod = mods.muzzle;
   if (muzzleMod || w.suppressed) {

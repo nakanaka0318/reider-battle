@@ -22,9 +22,9 @@ export const MACHINES = {
     shapes: [{ zone: 'core', y: 0.75, r: 0.22 }, { zone: 'body', y: 0.45, r: 0.55 }], loot: [1, 2], threat: 1,
   },
   sentinel: {
-    name: 'センチネル', fly: 0, speed: 2.4, turn: 1.2, radius: 1.5, height: 4, sight: 140, hear: 110,
-    hp: { core: 240, body: 1100, leg: 400 }, armor: { core: 3, body: 5, leg: 4 },
-    weapon: { dmg: 60, pen: 50, rpm: 50, burst: 1, pause: 2.6, charge: 1.1, spread: 0.5, range: 150, sound: 'laser', tracer: '#40e0ff', beam: true },
+    name: 'センチネル', fly: 0, speed: 2.4, turn: 1.2, radius: 1.5, height: 4, sight: 95, hear: 90,
+    hp: { core: 320, body: 1400, leg: 450 }, armor: { core: 4, body: 5, leg: 4 },
+    weapon: { dmg: 60, pen: 50, rpm: 70, burst: 2, pause: 2.2, charge: 1.1, spread: 0.5, range: 110, sound: 'laser', tracer: '#40e0ff', beam: true },
     shapes: [{ zone: 'core', y: 3.55, r: 0.45, back: 0.6 }, { zone: 'body', y: 2.7, r: 1.25 }, { zone: 'leg', y: 0.9, r: 0.75, off: 1.0 }],
     loot: [4, 6], threat: 4,
   },
@@ -111,7 +111,9 @@ export function generateLoadout(tierName, rng) {
     const pa = inv.equip.holster.mag.ammo;
     autoInsert(inv, createItem(pa, { count: ITEMS[inv.equip.holster.id].weapon.mag }));
   }
-  // 医薬品
+  // 医薬品（止血手段は必ず持たせる）
+  autoInsert(inv, createItem(tierName === 'scav' ? 'bandage' : rng() < 0.5 ? 'bandage_army' : 'bandage'));
+  if (tierName !== 'scav') autoInsert(inv, createItem('tourniquet'));
   const nm = 1 + Math.floor(rng() * 3);
   for (let i = 0; i < nm; i++) autoInsert(inv, createItem(pick(rng, T.meds)));
   if (rng() < 0.5) autoInsert(inv, createItem(pick(rng, ['water', 'can_beef', 'chocolate', 'crackers', 'juice'])));

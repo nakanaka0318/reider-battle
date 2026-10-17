@@ -141,6 +141,16 @@ export class Effects {
     this.tmpM = new THREE.Matrix4(); this.tmpQ = new THREE.Quaternion(); this.tmpV = new THREE.Vector3(); this.tmpS = new THREE.Vector3(1, 1, 1);
   }
 
+  // シェーダーの事前コンパイル用に一時的に全て表示する
+  setPrewarm(on) {
+    for (const T of this.tracers.slice(0, 1)) T.m.visible = on;
+    for (const B of this.beams.slice(0, 1)) B.m.visible = on;
+    for (const f of this.flashes.slice(0, 1)) f.s.visible = on;
+    this.decals.count = on ? 1 : this.decals.count;
+    this.casingMesh.count = on ? 1 : 0;
+    if (on) { this.add.emit({ x: 0, y: -50, z: 0, life: 0.1 }); this.norm.emit({ x: 0, y: -50, z: 0, life: 0.1 }); this.add.update(0); this.norm.update(0); }
+  }
+
   makeFlashTex() {
     const c = document.createElement('canvas'); c.width = c.height = 128;
     const g = c.getContext('2d');
