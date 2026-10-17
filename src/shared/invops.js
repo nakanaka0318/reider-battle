@@ -8,12 +8,16 @@ export function applyOp(src, dst, op) {
   if (!f) return false;
   const t = op.target;
   if (t.auto) {
+    // 入らなかったときに元の場所（装備スロット・パーツ・グリッドの同じ位置）へ正確に戻せるよう覚えておく
+    const from = { slot: f.slot, modOf: f.modOf, modSlot: f.modSlot, grid: f.grid, x: f.item.x, y: f.item.y, rot: f.item.rot };
     const it = removeItem(src, op.uid);
     if (!it) return false;
     if (autoEquipOrInsert(dst, it, { allowSecure: false })) return true;
-    autoInsert(src, it, { allowSecure: true });
-    // 元に戻せなかった場合（通常起こらない）
-    if (!findItem(src, it.uid)) autoInsert(src, it, { allowSecure: true });
+    // スタックの一部だけ移せた場合は、残りを元の場所に戻す
+    if (from.slot) src.equip[from.slot] = it;
+    else if (from.modOf) from.modOf.mods[from.modSlot] = it;
+    else if (from.grid) { it.x = from.x; it.y = from.y; it.rot = from.rot; from.grid.items.push(it); }
+    else autoInsert(src, it, { allowSecure: true });
     return false;
   }
   if (t.mod) {

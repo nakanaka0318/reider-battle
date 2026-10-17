@@ -425,7 +425,7 @@ export class Game {
       case 'hurt': this.onHurt(m); break;
       case 'msg': this.hud.msg(m.text, m.warn); break;
       case 'picked': this.audio.pickup(); this.hud.msg(`${ITEMS[m.item]?.name}${m.count > 1 ? ' ×' + m.count : ''} を拾った`); break;
-      case 'invFail': this.audio.ui(300); break;
+      case 'invFail': this.audio.ui(300); this.hud.msg('空きスペースがない（入らなかった物は元の場所に残っている）', true); break;
       case 'flashed': this.flashT = 1.5 + m.s * 4; this.audio.ring(2 + m.s * 4, m.s); break;
       case 'shake': this.shake = Math.min(1.5, this.shake + m.s * 2); this.audio.ring(1 + m.s * 3, m.s * 0.6); break;
       case 'died': this.onDied(m); break;

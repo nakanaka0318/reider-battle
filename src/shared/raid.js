@@ -669,7 +669,7 @@ export class Raid {
     const f = findItem(src, msg.uid);
     if (!f) return;
     const ok = applyOp(src, dst, msg);
-    if (src !== a.inv || dst !== a.inv) {
+    if (ok && (src !== a.inv || dst !== a.inv)) {
       if (src !== a.inv && dst === a.inv) a.stats.looted += itemValue(f.item);
       if (dst === a.inv) f.item.fir = f.item.fir ?? true;
     }
