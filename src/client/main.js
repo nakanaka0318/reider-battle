@@ -119,11 +119,30 @@ async function deploy(opts) {
     if (!(await confirmBox('出撃確認', '武器を持たずに出撃しますか？', '出撃する'))) return;
   }
   const loadout = PF.prepareRaidLoadout();
-  P.inRaid = { t: Date.now(), secure: lo.equip.secure ? JSON.parse(JSON.stringify(lo.equip.secure)) : null };
-  PF.save();
   clear();
+  app.append(h('div', { class: 'loading' }, h('div', { class: 'tip' }, '読み込み中…')));
+  // ゲーム本体は出撃時に読み込む。開いたままのページで更新が公開されると古いファイルが無くなっているので、
+  // そのときは最新版を読み直す（読み込みに失敗しても未帰還扱いにはしない）
+  let Game;
+  try {
+    ({ Game } = await import('./game/game.js'));
+  } catch (e) {
+    console.error(e);
+    let tried = false;
+    try { tried = sessionStorage.getItem('rb-reloaded') === '1'; sessionStorage.setItem('rb-reloaded', '1'); } catch { /* noop */ }
+    if (!tried) {
+      app.innerHTML = '';
+      app.append(h('div', { class: 'loading' }, h('div', { class: 'tip' }, 'ゲームが更新されています。最新版を読み込み直しています…')));
+      setTimeout(() => location.replace(location.pathname + '?v=' + Date.now()), 600);
+      return;
+    }
+    toast('ゲームを読み込めませんでした。通信状態を確認して、ページを再読み込みしてください。', 'warn');
+    showMenu();
+    return;
+  }
+  try { sessionStorage.removeItem('rb-reloaded'); } catch { /* noop */ }
   music.stop();
-  const { Game } = await import('./game/game.js');
+  app.innerHTML = '';
   const game = new Game(app, {
     profile: P,
     opts: { ...opts, loadout, level: PF.level() },
@@ -131,6 +150,9 @@ async function deploy(opts) {
   });
   try {
     await game.start();
+    // レイドが始まってから「出撃中」を記録（途中でページを閉じたら未帰還扱い）
+    P.inRaid = { t: Date.now(), secure: lo.equip.secure ? JSON.parse(JSON.stringify(lo.equip.secure)) : null };
+    PF.save();
   } catch (e) {
     console.error(e);
     toast(e.message || 'レイドを開始できませんでした', 'warn');
