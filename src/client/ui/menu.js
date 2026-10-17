@@ -11,6 +11,8 @@ import { getItemIcon } from '../icons.js';
 import { drawMapPreview } from './mapview.js';
 import { drawPortrait } from './portrait.js';
 
+const OFFLINE_ONLY = !!import.meta.env?.VITE_OFFLINE_ONLY;
+
 export class Menu {
   constructor(root, { onDeploy, onSettings }) {
     this.root = root;
@@ -20,6 +22,7 @@ export class Menu {
     this.trader = TRADERS[0].id;
     this.deployOpts = { mode: 'offline', timeOfDay: 'day', duration: 30, density: 'normal', raiders: 9 };
     try { Object.assign(this.deployOpts, JSON.parse(localStorage.getItem('rb-deploy') || '{}')); } catch { /* noop */ }
+    if (OFFLINE_ONLY) this.deployOpts.mode = 'offline';
     this.inv = new InvView({
       roots: () => ({ stash: PF.profile().stash, loadout: PF.profile().loadout }),
       apply: (s, d, op) => this.applyLocal(s, d, op),
@@ -486,7 +489,7 @@ export class Menu {
     const left = h('div', { class: 'panel' }, h('div', { class: 'panel-h' }, '出撃設定'), h('div', { class: 'panel-b' },
       h('div', { class: 'opt-group' }, h('label', { class: 'h' }, 'モード'), h('div', { class: 'opts' },
         opt('mode', 'offline', 'オールNPC', '他の「レイダー」も全員AI。ソロで遊べるPvPvE。'),
-        opt('mode', 'online', 'オンライン PvPvE', 'サーバーに接続し、他プレイヤー＋AIと同じレイドに参加する。'))),
+        OFFLINE_ONLY ? h('div', { class: 'opt', style: { opacity: 0.5, cursor: 'default' } }, h('b', {}, 'オンライン PvPvE'), h('small', {}, 'このページ版では使えません。サーバー版（npm start）で遊べます。')) : opt('mode', 'online', 'オンライン PvPvE', 'サーバーに接続し、他プレイヤー＋AIと同じレイドに参加する。'))),
       o.mode === 'online' ? h('div', { class: 'opt-group' }, h('label', { class: 'h' }, 'サーバーアドレス'),
         h('input', { class: 'search', style: { width: '100%', padding: '8px' }, value: P.settings.serverUrl || defaultServer(), placeholder: 'ws://localhost:8080', oninput: (e) => { P.settings.serverUrl = e.target.value; PF.save(); } }),
         h('div', { class: 'mini', style: { marginTop: '4px' } }, '同じサーバーに接続したプレイヤーは同じレイドに入る（レイド進行中は途中参加）。')) : null,

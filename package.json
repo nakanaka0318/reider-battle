@@ -9,7 +9,8 @@
     "build": "vite build",
     "server": "node server/server.js",
     "start": "vite build && node server/server.js",
-    "check": "node scripts/check.js"
+    "check": "node scripts/check.js",
+    "artifact": "VITE_OFFLINE_ONLY=1 vite build --mode artifact && node scripts/make-artifact.js"
   },
   "dependencies": {
     "three": "0.170.0",

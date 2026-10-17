@@ -1,5 +1,5 @@
 // エントリポイント：タイトル → メニュー → レイド → 結果
-import { h, toast, modal, fmt } from './ui/dom.js';
+import { h, toast, modal, fmt, confirmBox } from './ui/dom.js';
 import { Menu } from './ui/menu.js';
 import * as PF from './profile.js';
 import { ITEMS } from '../shared/items.js';
@@ -105,7 +105,7 @@ async function deploy(opts) {
   const P = PF.profile();
   const lo = P.loadout;
   if (!lo.equip.primary && !lo.equip.secondary && !lo.equip.holster) {
-    if (!confirm('武器を持たずに出撃しますか？')) return;
+    if (!(await confirmBox('出撃確認', '武器を持たずに出撃しますか？', '出撃する'))) return;
   }
   const loadout = PF.prepareRaidLoadout();
   P.inRaid = { t: Date.now(), secure: lo.equip.secure ? JSON.parse(JSON.stringify(lo.equip.secure)) : null };

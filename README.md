@@ -24,6 +24,7 @@ npm run check      # データ整合性チェック＋ヘッドレスのレイ�
 ```
 
 オフラインモードだけなら `npm run build` した `dist/` を任意の静的ホスティングに置けば遊べる。
+`npm run artifact` はオフライン専用の単一 HTML（`dist-artifact/raider-battle.html`）を生成する。
 
 ### サーバーの環境変数
 
