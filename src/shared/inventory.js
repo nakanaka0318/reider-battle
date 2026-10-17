@@ -274,3 +274,21 @@ export function allItems(root, includeEquip = true) {
 }
 
 export function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+// 空いている装備スロットがあればそこに装着し、なければ自動格納する。戻り値：'equip' | 'insert' | false
+export function equipSlotFor(root, item) {
+  if (!root?.equip) return null;
+  const def = ITEMS[item.id];
+  const order = def.cat === 'weapon' ? (def.weapon.class === 'pistol' ? ['holster'] : ['primary', 'secondary']) : [{ armor: 'armor', helmet: 'helmet', rig: 'rig', backpack: 'backpack', secure: 'secure' }[def.cat]];
+  for (const s of order) if (s && !root.equip[s] && canEquip(root, s, item)) return s;
+  return null;
+}
+export function autoEquipOrInsert(root, item, opts = {}) {
+  const slot = equipSlotFor(root, item);
+  if (slot) {
+    delete item.x; delete item.y; item.rot = false;
+    root.equip[slot] = item;
+    return 'equip';
+  }
+  return autoInsert(root, item, opts) ? 'insert' : false;
+}

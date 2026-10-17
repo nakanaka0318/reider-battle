@@ -3,7 +3,7 @@ import { buildMap } from './map.js';
 import { World } from './world.js';
 import { makeRng, dirFromYawPitch, vdist, vnorm } from './math.js';
 import { ITEMS, createItem, weaponStats, pickLootItem, lootInstance, CONTAINERS, modFits, itemValue, slotAccepts } from './items.js';
-import { newGrid, autoInsert, moveItem, findItem, removeItem, countAmmo, takeAmmo, allItems, rootWeight, newActorInv } from './inventory.js';
+import { newGrid, autoInsert, autoEquipOrInsert, moveItem, findItem, removeItem, countAmmo, takeAmmo, allItems, rootWeight, newActorInv } from './inventory.js';
 import { newHealth, damageHuman, humanZone, humanHeight, HUMAN_R, rayCylinder, raySphere, tickHealth, applyMed, totalHp, TOTAL_HP, PARTS, applyPartDamage } from './combat.js';
 import { MACHINES, generateLoadout, botName, machineLoot } from './bots.js';
 import { applyOp } from './invops.js';
@@ -690,7 +690,9 @@ export class Raid {
     const g = this.ground.get(gid);
     if (!g) return;
     if (Math.hypot(g.x - a.pos.x, g.z - a.pos.z) > 3.2 || Math.abs(g.y - a.pos.y) > 2.6) return;
-    if (!autoInsert(a.inv, g.item)) { this.sendTo(a, { t: 'msg', text: '空きスペースがない', warn: true }); return; }
+    const res = autoEquipOrInsert(a.inv, g.item);
+    if (!res) { this.sendTo(a, { t: 'msg', text: '空きスペースがない', warn: true }); return; }
+    if (res === 'equip') this.sendTo(a, { t: 'msg', text: `${ITEMS[g.item.id].name} を装備した` });
     if (g.item.fir === undefined) g.item.fir = true;
     a.stats.looted += itemValue(g.item);
     this.ground.delete(gid);

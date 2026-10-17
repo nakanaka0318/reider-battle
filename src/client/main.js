@@ -96,6 +96,8 @@ function settingsModal() {
   modal('設定', h('div', { style: { width: '460px' } },
     matchMedia('(pointer: coarse)').matches ? range('touchSens', 0.2, 3, 0.05) : range('sens', 0.2, 3, 0.05), range('adsSensMul', 0.3, 1.5, 0.05), range('fov', 60, 100, 1), range('volume', 0, 1, 0.05),
     row('画質', qual),
+    row('エイムアシスト', h('select', { onchange: (e) => { S.aimAssist = +e.target.value; PF.save(); } }, ['なし', '弱', '標準', '強'].map((t, i) => h('option', { value: i, selected: (S.aimAssist ?? 0) === i }, t)))),
+    h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.autoFire, onchange: (e) => { S.autoFire = e.target.checked; PF.save(); } }), 'オートファイア（照準が敵に重なると自動で撃つ）'),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.invertY, onchange: (e) => { S.invertY = e.target.checked; PF.save(); } }), 'マウス Y 軸反転'),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.showFps, onchange: (e) => { S.showFps = e.target.checked; PF.save(); } }), 'FPS・PING を表示'),
   ), [{ text: '閉じる' }]);

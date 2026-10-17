@@ -407,3 +407,5 @@ input.search { background: #111; border: 1px solid var(--line2); color: var(--te
   .loading .tip { font-size: 11px; }
   .equip-panel .slot .slot-label { font-size: 8px; }
 }
+
+.crosshair.hot i { background: #ff4a3a; }

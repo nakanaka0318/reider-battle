@@ -2,8 +2,8 @@
 import { h, toast, modal, confirmBox, fmt, hideTooltip, showTooltip, moveTooltip } from './dom.js';
 import { InvView, cellSize } from './invview.js';
 import { itemTooltip, SLOT_JP, CLASS_NAMES } from './itemtip.js';
-import { ITEMS, ITEM_LIST, CAT_NAMES, RARITY_COLORS, weaponStats, modFits, itemValue, createItem } from '../../shared/items.js';
-import { findItem, removeItem, autoInsert, rootWeight, allItems, listGrids } from '../../shared/inventory.js';
+import { ITEMS, ITEM_LIST, CAT_NAMES, RARITY_COLORS, weaponStats, modFits, itemValue, createItem, EQUIP_SLOTS, SLOT_NAMES, slotAccepts } from '../../shared/items.js';
+import { findItem, removeItem, autoInsert, rootWeight, allItems, listGrids, canEquip } from '../../shared/inventory.js';
 import { applyOp } from '../../shared/invops.js';
 import { TRADERS, STATIONS, QUESTS, RECIPES, XP_LEVELS } from '../../shared/data/meta.js';
 import * as PF from '../profile.js';
@@ -96,7 +96,7 @@ export class Menu {
     const page = h('div', { class: 'page', style: { overflow: 'hidden' } },
       h('div', { class: 'inv-layout' },
         h('div', { class: 'inv-col scroll', style: { width: 'auto', minWidth: '420px' } },
-          h('div', { class: 'panel' }, h('div', { class: 'panel-h' }, '装備（出撃時に持ち込む）', h('span', { class: 'sub', id: 'lo-weight' })), h('div', { class: 'panel-b' }, this.inv.equipment('loadout'))),
+          h('div', { class: 'panel' }, h('div', { class: 'panel-h' }, '装備（出撃時に持ち込む）', h('span', { class: 'sub', id: 'lo-weight' }), h('button', { class: 'btn small primary', onclick: () => this.autoEquipModal() }, 'おまかせ装備')), h('div', { class: 'panel-b' }, this.inv.equipment('loadout'))),
         ),
         h('div', { class: 'inv-col', style: { flex: '0 0 auto' } },
           h('div', { class: 'panel', style: { display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '100%' } },
@@ -167,9 +167,35 @@ export class Menu {
     this.inv.refresh();
   }
 
+  autoEquipModal() {
+    const run = (mode) => {
+      const log = PF.autoEquip(mode);
+      this.inv.refresh(); this.refreshSide();
+      toast(log.length ? `装備した：${log.join('、')}` : '倉庫に使える装備がない', log.length ? 'good' : 'warn');
+    };
+    modal('おまかせ装備', h('div', { style: { maxWidth: '440px', lineHeight: 1.7 } },
+      '倉庫の中から装備を自動で選んで装着し、武器に弾を込め、予備弾薬・医薬品・水・手榴弾をリグとポケットに詰めます。',
+      h('div', { class: 'mini', style: { marginTop: '6px' } }, '「最強に入れ替え」は今の装備より良い物があれば交換します（外した装備は倉庫へ）。死ぬと失うので注意。')),
+    [{ text: '空きスロットを埋める', fn: () => run('fill') }, { text: '最強に入れ替え', cls: 'primary', fn: () => run('best') }]);
+  }
+
   ctxItems(ref, it) {
     const def = ITEMS[it.id];
     const out = [{ text: '詳細を見る', fn: () => this.inspect(ref, it) }];
+    if (ref === 'stash') {
+      const P = PF.profile();
+      const slots = EQUIP_SLOTS.filter((s) => slotAccepts(s, def));
+      for (const s of slots) out.push({ text: `装備する（${SLOT_NAMES[s]}）`, fn: () => {
+        const cur = P.loadout.equip[s];
+        const tmp = { equip: { ...P.loadout.equip, [s]: null } };
+        if (!canEquip(tmp, s, it)) { toast('アーマーリグとボディアーマーは同時に装備できない', 'warn'); return; }
+        removeItem(P.stash, it.uid);
+        if (cur) { P.loadout.equip[s] = null; if (!autoInsert(P.stash, cur)) { P.loadout.equip[s] = cur; autoInsert(P.stash, it); toast('倉庫に空きがない', 'warn'); return; } }
+        delete it.x; delete it.y; it.rot = false;
+        P.loadout.equip[s] = it;
+        PF.commit(); this.inv.refresh(); this.refreshSide();
+      } });
+    }
     if (def.weapon) out.push({ text: '武器をカスタマイズ', fn: () => this.weaponModal(ref, it) });
     if (def.weapon && it.mag?.count) out.push({ text: '弾を抜く', fn: () => { const P = PF.profile(); const root = ref === 'stash' ? P.stash : P.loadout; const a = createItem(it.mag.ammo, { count: it.mag.count }); it.mag.count = 0; if (!autoInsert(P.stash, a)) autoInsert(root, a); PF.commit(); this.inv.refresh(); } });
     if (def.weapon) {

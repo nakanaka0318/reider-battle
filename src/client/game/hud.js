@@ -131,6 +131,9 @@ export class HUD {
     // クロスヘア（腰だめのみ）
     const showCross = !P.ads && !!w && !g.invOpen;
     E.cross.style.display = showCross ? '' : 'none';
+    // 照準が敵に重なっているときは赤く
+    const hot = g.aimTarget && g.aimTarget.ang < g.aimTarget.size * 1.2;
+    if (hot !== this._hot) { this._hot = hot; E.cross.classList.toggle('hot', !!hot); }
     if (showCross && w) {
       const st = weaponStats(w);
       const spreadDeg = st.hipSpread * (P.moving ? 1.6 : 1) * (P.crouch ? 0.8 : 1);

@@ -210,6 +210,7 @@ export class Game {
     inp.enabled = !uiOpen || this.rinv.open;
     if (this.touch) { this.touch.update(); if (uiOpen) { inp.moveX = 0; inp.moveY = 0; } }
     if (!uiOpen && inp.locked) {
+      this.aimAssist(dt, inp);
       P.update(dt, inp);
       if (inp.pressed('KeyF')) this.interact();
       if (inp.pressed('KeyG') && this.time > P.throwUntil) P.throwGrenade();
@@ -228,6 +229,65 @@ export class Game {
     this.updateGround(dt);
     this.render(dt);
     inp.endFrame();
+  }
+
+  // ---------------------------------------------------------------- エイムアシスト（主にスマホ向け）
+  // 照準の近くにいる敵に視点を少し吸い付かせ、敵の上では感度を落とす。オートファイアも任意で。
+  aimAssist(dt, inp) {
+    const level = this.settings.aimAssist ?? 0; // 0:なし 1:弱 2:標準 3:強
+    const P = this.player;
+    this.aimTarget = null;
+    if (!P?.alive || !P.weapon()) return;
+    const e = P.eye();
+    const f = P.aimDir();
+    let best = null, bestScore = Infinity;
+    for (const a of this.actors.values()) {
+      if (a.dead || !a.cur || !a.info) continue;
+      const k = a.info.kind;
+      const crouch = (a.flags || 0) & 1;
+      let y = a.cur.y + (crouch ? 0.85 : 1.3), r = 0.35;
+      if (k === 'machine') {
+        const m = a.info.mtype;
+        y = a.cur.y + (m === 'sentinel' ? 2.7 : m === 'tick' ? 0.45 : 0);
+        r = m === 'sentinel' ? 1.3 : m === 'hornet' ? 0.8 : 0.55;
+      }
+      const dx = a.cur.x - e.x, dy = y - e.y, dz = a.cur.z - e.z;
+      const d = Math.hypot(dx, dy, dz);
+      if (d < 1 || d > 120) continue;
+      const cos = (dx * f.x + dy * f.y + dz * f.z) / d;
+      const ang = Math.acos(Math.min(1, cos));
+      const size = Math.atan(r / d);
+      const cone = size + (P.ads ? 0.06 : 0.11) * (0.6 + level * 0.25);
+      if (ang > cone) continue;
+      const score = ang / cone + d / 400;
+      if (score < bestScore) { bestScore = score; best = { a, y, d, ang, size, dx, dy, dz }; }
+    }
+    if (best && !this.world.lineOfSight(e, { x: best.a.cur.x, y: best.y, z: best.a.cur.z })) best = null;
+    if (!best) return;
+    this.aimTarget = best;
+    const onTarget = best.ang < best.size * 1.2;
+    if (level > 0) {
+      // 吸い付き：敵の方向へ少しずつ回す（ADS・射撃中は強め）
+      const tYaw = Math.atan2(-best.dx, -best.dz) - P.recoilY;
+      const tPitch = Math.atan2(best.dy, Math.hypot(best.dx, best.dz)) - P.recoilP;
+      let dyaw = tYaw - P.yaw;
+      while (dyaw > Math.PI) dyaw -= Math.PI * 2;
+      while (dyaw < -Math.PI) dyaw += Math.PI * 2;
+      const strength = (0.9 + level * 1.1) * (P.ads ? 1.8 : 1) * (inp.mouse[0] ? 1.4 : 1);
+      const kk = Math.min(1, dt * strength);
+      P.yaw += dyaw * kk;
+      P.pitch += (tPitch - P.pitch) * kk * 0.85;
+      // 敵の上では視点移動を鈍く（行き過ぎ防止）
+      if (best.ang < best.size * 2.5) { const fr = 1 - 0.15 * level; inp.mdx *= fr; inp.mdy *= fr; }
+    }
+    // オートファイア：照準が敵に重なったら撃つ（単射武器は連打）
+    if (this.settings.autoFire && onTarget) {
+      this._afTick = !this._afTick;
+      const def = ITEMS[P.weapon().id];
+      const mode = def.weapon.modes[(this.selfState?.mode || 0) % def.weapon.modes.length];
+      inp.mouse[0] = mode === 'auto' ? true : this._afTick;
+      this._autoFiring = true;
+    } else if (this._autoFiring) { this._autoFiring = false; if (!this.touch?.fireId) inp.mouse[0] = false; }
   }
 
   sendState(force) {
@@ -567,6 +627,7 @@ export class Game {
       const pitch = s0.pitch + (s1.pitch - s0.pitch) * k;
       const speed = span > 0 ? Math.hypot(s1.x - s0.x, s1.z - s0.z) / span : 0;
       a.cur = { x, y, z };
+      a.flags = s1.f;
       const flags = s1.f;
       a.view.update({ x, y, z, yaw, pitch, flags, speed, lean: 0, armed: a.armed }, dt, this.time);
       // 武器スロット変化 → 見た目は ainfo で更新される
@@ -758,6 +819,8 @@ export class Game {
         slider('ADS 感度倍率', 'adsSensMul', 0.3, 1.5, 0.05),
         slider('視野角 (FOV)', 'fov', 60, 100, 1),
         slider('音量', 'volume', 0, 1, 0.05, (v) => this.audio.setVolume(v)),
+        h('div', { class: 'slider-row' }, 'エイムアシスト', h('select', { onchange: (e) => { S.aimAssist = +e.target.value; } }, ['なし', '弱', '標準', '強'].map((t, i) => h('option', { value: i, selected: (S.aimAssist ?? 0) === i }, t))), h('span')),
+        h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.autoFire, onchange: (e) => { S.autoFire = e.target.checked; } }), 'オートファイア（照準が敵に重なると自動で撃つ）'),
         h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.showFps, onchange: (e) => { S.showFps = e.target.checked; } }), 'FPS を表示'),
         h('div', { class: 'sep' }),
         IS_TOUCH ? null : helpKeys(),

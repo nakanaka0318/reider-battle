@@ -1,6 +1,6 @@
 // プレイヤープロフィール（ローカル保存）：倉庫・装備・所持金・トレーダー・クラフト・クエスト
-import { ITEMS, ITEM_LIST, createItem, itemValue, EQUIP_SLOTS } from '../shared/items.js';
-import { newGrid, newActorInv, autoInsert, findItem, removeItem, allItems, listGrids } from '../shared/inventory.js';
+import { ITEMS, ITEM_LIST, createItem, itemValue, EQUIP_SLOTS, slotAccepts, weaponStats } from '../shared/items.js';
+import { newGrid, newActorInv, autoInsert, findItem, removeItem, allItems, listGrids, canEquip, countAmmo } from '../shared/inventory.js';
 import { TRADERS, RECIPES, STATIONS, QUESTS, traderBuyRate, traderMaxRarity, levelFromXp } from '../shared/data/meta.js';
 
 const KEY = 'raider-battle-profile-v1';
@@ -41,7 +41,7 @@ function migrate(p) {
 
 function defaultSettings() {
   const touch = typeof window !== 'undefined' && matchMedia('(pointer: coarse)').matches;
-  return { sens: 1.0, fov: touch ? 70 : 75, volume: 0.8, music: 0.4, quality: touch ? 'medium' : 'high', invertY: false, serverUrl: '', showFps: false, adsSensMul: 0.75, touchSens: 1.0 };
+  return { sens: 1.0, fov: touch ? 70 : 75, volume: 0.8, music: 0.4, quality: touch ? 'medium' : 'high', invertY: false, serverUrl: '', showFps: false, adsSensMul: 0.75, touchSens: 1.0, aimAssist: touch ? 2 : 0, autoFire: false };
 }
 
 export function stashRows(p = P) {
@@ -350,3 +350,99 @@ export function itemsValue(root) {
 
 export function stashValue() { return itemsValue(P.stash) + itemsValue(P.loadout); }
 export { listGrids };
+
+// ---------------------------------------------------------------- おまかせ装備
+// mode: 'fill'（空きスロットだけ埋める） | 'best'（倉庫により良い物があれば入れ替える）
+function gearScore(slot, it) {
+  const d = ITEMS[it.id];
+  if (d.weapon) return itemValue(it) + (it.mag?.count ? 1 : 0);
+  if (d.armor && (slot === 'armor' || slot === 'helmet')) return d.armor.cls * 1000 + (it.dur ?? d.armor.dur) * 4 - d.armor.speed * 300;
+  if (slot === 'rig') return (d.grids || []).reduce((s, [w, h]) => s + w * h, 0) * 10 + (d.armor ? d.armor.cls * 400 : 0);
+  if (d.grids) return d.grids.reduce((s, [w, h]) => s + w * h, 0);
+  return itemValue(it);
+}
+
+export function autoEquip(mode = 'fill') {
+  const lo = P.loadout, st = P.stash;
+  const log = [];
+  const order = ['primary', 'holster', 'secondary', 'rig', 'armor', 'helmet', 'backpack', 'secure'];
+  for (const slot of order) {
+    const cur = lo.equip[slot];
+    if (cur && mode === 'fill') continue;
+    let best = null, bs = cur ? gearScore(slot, cur) : -1;
+    for (const it of st.grid.items) {
+      if (!slotAccepts(slot, ITEMS[it.id])) continue;
+      if (slot === 'secondary' && lo.equip.primary && ITEMS[it.id].weapon.class === ITEMS[lo.equip.primary.id].weapon.class) continue;
+      // 現在の装備を外した前提で装着可能か（リグとアーマーの排他）
+      const tmp = { equip: { ...lo.equip, [slot]: null } };
+      if (!canEquip(tmp, slot, it)) continue;
+      const sc = gearScore(slot, it);
+      if (sc > bs) { bs = sc; best = it; }
+    }
+    if (!best) continue;
+    st.grid.items.splice(st.grid.items.indexOf(best), 1);
+    delete best.x; delete best.y; best.rot = false;
+    if (cur) {
+      lo.equip[slot] = null;
+      // 外した装備の中身ごと倉庫へ（入らなければ元に戻す）
+      if (!autoInsert(st, cur)) { lo.equip[slot] = cur; autoInsert(st, best); continue; }
+    }
+    lo.equip[slot] = best;
+    log.push(`${ITEMS[best.id].name}`);
+  }
+  // 武器に弾を込める（倉庫・装備内で最も貫通力の高い弾）
+  for (const s of ['primary', 'secondary', 'holster']) {
+    const w = lo.equip[s];
+    if (!w?.mag) continue;
+    const cal = ITEMS[w.id].weapon.caliber, cap = weaponStats(w).capacity;
+    if (w.mag.count >= cap) continue;
+    const avail = { ...countAmmo({ equip: {}, pockets: st.grid }, cal) };
+    let ammoId = w.mag.count > 0 ? w.mag.ammo : null;
+    if (!ammoId) for (const id of Object.keys(avail)) if (!ammoId || ITEMS[id].ammo.pen > ITEMS[ammoId].ammo.pen) ammoId = id;
+    if (!ammoId || !avail[ammoId]) continue;
+    w.mag.ammo = ammoId;
+    w.mag.count += takeFromStash(ammoId, cap - w.mag.count);
+    log.push(`${ITEMS[w.id].short} に装填`);
+  }
+  // 予備弾薬（各武器 2 マガジン分）
+  for (const s of ['primary', 'secondary', 'holster']) {
+    const w = lo.equip[s];
+    if (!w?.mag) continue;
+    const def = ITEMS[w.id], cap = weaponStats(w).capacity;
+    const want = Math.min(def.weapon.class === 'pistol' ? cap : cap * 2, 120);
+    const have = Object.values(countAmmo(lo, def.weapon.caliber)).reduce((a, b) => a + b, 0);
+    let need = want - have, moved = 0;
+    while (need > 0) {
+      const inStash = Object.keys(countAmmo({ equip: {}, pockets: st.grid }, def.weapon.caliber));
+      const id = inStash.includes(w.mag.ammo) ? w.mag.ammo : inStash[0];
+      if (!id) break;
+      const n = takeFromStash(id, Math.min(need, ITEMS[id].stack));
+      if (!n) break;
+      const a = createItem(id, { count: n });
+      if (!autoInsert(lo, a)) { autoInsert(st, a); break; }
+      need -= n; moved += n;
+    }
+    if (moved) log.push(`予備弾 ${ITEMS[w.id].short}×${moved}`);
+  }
+  // 医薬品・食料・投擲物（足りない役割だけ）
+  const loItems = () => allItems(lo).map((i) => ITEMS[i.id]);
+  const roles = [
+    ['止血', (d) => d.med && d.med.bleed && !d.med.heal],
+    ['止血帯', (d) => d.med && d.med.heavy],
+    ['回復', (d) => d.med && d.med.heal > 0],
+    ['骨折', (d) => d.med && d.med.fracture],
+    ['鎮痛', (d) => d.med && d.med.pain && !d.med.heal],
+    ['水分', (d) => d.cat === 'food' && d.med.hydration > 20],
+    ['投擲物', (d) => d.cat === 'grenade' && d.grenade.type === 'frag'],
+  ];
+  for (const [name, f] of roles) {
+    if (loItems().some(f)) continue;
+    const cand = st.grid.items.filter((i) => f(ITEMS[i.id])).sort((a, b) => itemValue(a) - itemValue(b))[0];
+    if (!cand) continue;
+    st.grid.items.splice(st.grid.items.indexOf(cand), 1);
+    if (autoInsert(lo, cand)) log.push(name);
+    else autoInsert(st, cand);
+  }
+  changed();
+  return log;
+}

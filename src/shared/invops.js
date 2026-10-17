@@ -1,6 +1,6 @@
 // インベントリ操作の適用（サーバー・クライアント共通）
 import { ITEMS, modFits, slotAccepts } from './items.js';
-import { moveItem, findItem, removeItem, autoInsert } from './inventory.js';
+import { moveItem, findItem, removeItem, autoInsert, autoEquipOrInsert } from './inventory.js';
 
 // op: { uid, target: {auto} | {mod, slot} | {slot} | {merge} | {gid,x,y,rot,split} }
 export function applyOp(src, dst, op) {
@@ -10,7 +10,7 @@ export function applyOp(src, dst, op) {
   if (t.auto) {
     const it = removeItem(src, op.uid);
     if (!it) return false;
-    if (autoInsert(dst, it, { allowSecure: false })) return true;
+    if (autoEquipOrInsert(dst, it, { allowSecure: false })) return true;
     autoInsert(src, it, { allowSecure: true });
     // 元に戻せなかった場合（通常起こらない）
     if (!findItem(src, it.uid)) autoInsert(src, it, { allowSecure: true });
