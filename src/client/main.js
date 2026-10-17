@@ -94,14 +94,14 @@ function settingsModal() {
   const row = (label, input) => h('div', { class: 'slider-row' }, label, input, h('span'));
   const range = (key, min, max, step) => {
     const v = h('span', { class: 'num' }, S[key]);
-    const el = h('div', { class: 'slider-row' }, { sens: 'マウス感度', adsSensMul: 'ADS 感度倍率', fov: '視野角', volume: '効果音の音量', touchSens: 'タッチ感度', music: 'BGM の音量' }[key],
+    const el = h('div', { class: 'slider-row' }, { sens: 'マウス感度', adsSensMul: 'ADS 感度倍率', fov: '視野角', volume: '効果音の音量', touchSens: 'タッチ感度', music: 'BGM の音量', footsteps: '自分の足音' }[key],
       h('input', { type: 'range', min, max, step, value: S[key], oninput: (e) => { S[key] = parseFloat(e.target.value); v.textContent = S[key]; if (key === 'music') music.setVolume(S[key]); PF.save(); } }), v);
     return el;
   };
   const qual = h('select', { onchange: (e) => { S.quality = e.target.value; PF.save(); } },
     ['high', 'medium', 'low'].map((q) => h('option', { value: q, selected: S.quality === q }, { high: '高（影・ブルーム・草）', medium: '中', low: '低（影なし）' }[q])));
   modal('設定', h('div', { style: { width: '460px' } },
-    matchMedia('(pointer: coarse)').matches ? range('touchSens', 0.2, 3, 0.05) : range('sens', 0.2, 3, 0.05), range('adsSensMul', 0.3, 1.5, 0.05), range('fov', 60, 100, 1), range('volume', 0, 1, 0.05), range('music', 0, 1, 0.05),
+    matchMedia('(pointer: coarse)').matches ? range('touchSens', 0.2, 3, 0.05) : range('sens', 0.2, 3, 0.05), range('adsSensMul', 0.3, 1.5, 0.05), range('fov', 60, 100, 1), range('volume', 0, 1, 0.05), range('music', 0, 1, 0.05), range('footsteps', 0, 1, 0.05),
     row('画質', qual),
     row('エイムアシスト', h('select', { onchange: (e) => { S.aimAssist = +e.target.value; PF.save(); } }, ['なし', '弱', '標準', '強'].map((t, i) => h('option', { value: i, selected: (S.aimAssist ?? 0) === i }, t)))),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.autoFire, onchange: (e) => { S.autoFire = e.target.checked; PF.save(); } }), 'オートファイア（照準が敵に重なると自動で撃つ）'),

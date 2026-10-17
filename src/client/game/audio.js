@@ -190,7 +190,7 @@ export class Audio3D {
     this.tone(dest, t, 0.05, { type: 'sine', freq: 90, freqEnd: 50, gain: 0.12 * loud });
     if (surface === 'metal') this.tone(dest, t, 0.15, { type: 'triangle', freq: 640, freqEnd: 600, gain: 0.05 * loud });
   }
-  land(local = true) { const t = this.ctx.currentTime; this.noise(this.world, t, 0.15, { gain: 0.35, filter: 'lowpass', freq: 600 }); void local; }
+  land(vol = 1) { const t = this.ctx.currentTime; this.noise(this.world, t, 0.15, { gain: 0.35 * vol, filter: 'lowpass', freq: 600 }); }
   click(pos, f = 3000, g = 0.25) {
     const t = this.ctx.currentTime, dest = this.out(pos, 2, 30);
     this.noise(dest, t, 0.03, { gain: g, filter: 'bandpass', freq: f, q: 5 });

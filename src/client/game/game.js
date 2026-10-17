@@ -819,6 +819,7 @@ export class Game {
         slider('ADS 感度倍率', 'adsSensMul', 0.3, 1.5, 0.05),
         slider('視野角 (FOV)', 'fov', 60, 100, 1),
         slider('音量', 'volume', 0, 1, 0.05, (v) => this.audio.setVolume(v)),
+        slider('自分の足音', 'footsteps', 0, 1, 0.05),
         h('div', { class: 'slider-row' }, 'エイムアシスト', h('select', { onchange: (e) => { S.aimAssist = +e.target.value; } }, ['なし', '弱', '標準', '強'].map((t, i) => h('option', { value: i, selected: (S.aimAssist ?? 0) === i }, t))), h('span')),
         h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.autoFire, onchange: (e) => { S.autoFire = e.target.checked; } }), 'オートファイア（照準が敵に重なると自動で撃つ）'),
         h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.showFps, onchange: (e) => { S.showFps = e.target.checked; } }), 'FPS を表示'),

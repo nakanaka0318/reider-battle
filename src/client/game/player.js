@@ -108,7 +108,7 @@ export class LocalPlayer {
     if (input.pressed('Space') && this.phys.onGround && this.stamina > 10 && this.crouchK < 0.5) { this.phys.vy = 5.0; this.phys.onGround = false; this.stamina -= 10; this.fallStartY = this.pos.y; }
     const wasGround = this.phys.onGround;
     g.world.moveCharacter(this.pos, this.vel.x * dt, this.vel.z * dt, dt, this.phys, 0.33, this.crouchK > 0.5 ? 1.25 : 1.8, 0.45);
-    if (!wasGround && this.phys.onGround) { g.audio.land(); g.vm.kick += 0.4; const fall = this.fallStartY - this.pos.y; if (fall > 3.5) g.toastMsg('高所から落下した', true); }
+    if (!wasGround && this.phys.onGround) { g.audio.land(Math.min(1, (g.settings.footsteps ?? 0.3) * 1.6)); g.vm.kick += 0.4; const fall = this.fallStartY - this.pos.y; if (fall > 3.5) g.toastMsg('高所から落下した', true); }
     if (wasGround && !this.phys.onGround) this.fallStartY = this.pos.y;
     this.speed = Math.hypot(this.vel.x, this.vel.z);
     this.moving = this.speed > 0.3;
@@ -119,7 +119,7 @@ export class LocalPlayer {
     // 足音
     if (this.moving && this.phys.onGround) {
       this.stepT += dt * this.speed * (this.sprint ? 0.42 : 0.55);
-      if (this.stepT > 1) { this.stepT = 0; g.audio.step(null, g.surfaceAt(this.pos), this.sprint ? 0.9 : this.crouch ? 0.25 : 0.55, true); }
+      if (this.stepT > 1) { this.stepT = 0; g.audio.step(null, g.surfaceAt(this.pos), (this.sprint ? 0.9 : this.crouch ? 0.25 : 0.55) * (g.settings.footsteps ?? 0.3), true); }
     }
     // 武器切替
     for (const [code, slot] of [['Digit1', 'primary'], ['Digit2', 'secondary'], ['Digit3', 'holster']]) {
