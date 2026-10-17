@@ -361,15 +361,23 @@ export function buildMap(seed = 1337) {
     for (let x = x0 + 6; x < x1; x += 6) box(x - 0.2, H - 1.2, z0, x + 0.2, H - 0.8, z1, 'metal', '#4a4a48');
     // 中二階（北側 z0..z0+8, y=4.5）とオフィス
     const my = 4.5;
-    const st = { x: x1 - 2.5, z: z0 + 8.6, axis: 'x', dir: -1, w: 1.4 };
-    // 階段は x1-2.5 から -X 方向へ、z = z0+9.4 付近（中二階の外）
-    const stairs2 = { x: x0 + 24, z: z0 + 9.2, axis: 'x', dir: -1, w: 1.4 };
-    stairs({ ...stairs2, w: 1.4, axis: 'x' }, 0, my);
-    void st;
+    // 階段：1 階から北へまっすぐ上ると中二階の手すりの切れ目に出る（幅 2 m、両側に手すり）
+    const sx = x0 + 18, sw = 2.0, sn = Math.round(my / 0.26), slen = sn * 0.3, sz0 = z0 + 8, sz1 = sz0 + slen;
+    stairs({ x: sx, z: sz1, axis: 'z', dir: -1, w: sw }, 0, my);
     box(x0, my - 0.25, z0, x1, my, z0 + 8, 'concrete_floor');
-    // 手すり
-    wall('x', z0 + 8, x0, x1, my, my + 1.0, 0.08, 'metal', [{ c: x0 + 18.1, w: 1.6, y0: my, y1: my + 2 }], '#c8a020');
-    box(x0 + 17.2, my - 0.25, z0 + 8, x0 + 18.9, my, z0 + 9.9, 'concrete_floor'); // 踊り場
+    // 中二階の手すり（階段の上だけ開いている）
+    wall('x', z0 + 8, x0, x1, my, my + 1.0, 0.08, 'metal', [{ c: sx, w: sw + 0.2, y0: my, y1: my + 2 }], '#c8a020');
+    // 階段の手すり：段ごとの高さに合わせた支柱と横棒（黄色で遠くからでも分かる）
+    for (let i = 0; i <= sn; i += 2) {
+      const z = sz1 - i * 0.3, top = Math.min(my, (i + 1) * (my / sn)) + 1.0;
+      for (const side of [-1, 1]) box(sx + side * (sw / 2 + 0.05) - 0.04, 0.12, z - 0.04, sx + side * (sw / 2 + 0.05) + 0.04, top, z + 0.04, 'metal', '#c8a020');
+    }
+    for (const side of [-1, 1]) for (let i = 0; i < sn; i += 2) {
+      const za = sz1 - i * 0.3, zb = sz1 - Math.min(sn, i + 2) * 0.3, top = Math.min(my, (i + 1) * (my / sn)) + 1.0;
+      box(sx + side * (sw / 2 + 0.05) - 0.03, top - 0.06, za, sx + side * (sw / 2 + 0.05) + 0.03, top, zb, 'metal', '#c8a020');
+    }
+    // 上り口の床に黄色と黒の警告ライン
+    box(sx - sw / 2, 0.12, sz1, sx + sw / 2, 0.14, sz1 + 0.6, 'metal', '#d8b020');
     // 中二階の支柱
     for (let x = x0 + 4; x < x1; x += 8) box(x - 0.2, 0, z0 + 7.8, x + 0.2, my - 0.25, z0 + 8.2, 'metal', '#c8a020');
     // オフィス（事務所 key_office）: x0..x0+12、制御室（key_control）: x1-12..x1

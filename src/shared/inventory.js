@@ -222,6 +222,14 @@ export function moveItem(srcRoot, uid, dstRoot, target) {
   return true;
 }
 
+// 耐荷重（これを超えると移動が遅くなる）。反重力装置を持っていると増える
+export const BASE_CARRY = 22;
+export function carryCapacity(root) {
+  let c = BASE_CARRY;
+  for (const it of allItems(root)) { const k = ITEMS[it.id]?.carry; if (k) c += k * (it.count || 1); }
+  return c;
+}
+
 export function rootWeight(root) {
   let w = 0;
   if (root.equip) for (const s of EQUIP_SLOTS) if (root.equip[s]) w += itemWeight(root.equip[s]);

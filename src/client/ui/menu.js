@@ -3,7 +3,7 @@ import { h, toast, modal, confirmBox, fmt, hideTooltip, showTooltip, moveTooltip
 import { InvView, cellSize } from './invview.js';
 import { itemTooltip, SLOT_JP, CLASS_NAMES } from './itemtip.js';
 import { ITEMS, ITEM_LIST, CAT_NAMES, RARITY_COLORS, weaponStats, modFits, itemValue, createItem, EQUIP_SLOTS, SLOT_NAMES, slotAccepts } from '../../shared/items.js';
-import { findItem, removeItem, autoInsert, rootWeight, allItems, listGrids, canEquip } from '../../shared/inventory.js';
+import { findItem, removeItem, autoInsert, rootWeight, allItems, listGrids, canEquip, carryCapacity } from '../../shared/inventory.js';
 import { applyOp } from '../../shared/invops.js';
 import { TRADERS, STATIONS, QUESTS, RECIPES, XP_LEVELS } from '../../shared/data/meta.js';
 import * as PF from '../profile.js';
@@ -141,7 +141,7 @@ export class Menu {
       h('div', { class: 'col', style: { gap: '4px', fontSize: '13px' } },
         h('div', { class: 'row' }, 'エネルギー', h('span', { class: 'grow' }), h('b', { class: 'num' }, Math.round(P.health.energy))),
         h('div', { class: 'row' }, '水分', h('span', { class: 'grow' }), h('b', { class: 'num' }, Math.round(P.health.hydration))),
-        h('div', { class: 'row' }, '重量', h('span', { class: 'grow' }), h('b', { class: 'num', style: { color: w > 35 ? '#d24a3a' : '' } }, w.toFixed(1) + ' kg')),
+        h('div', { class: 'row' }, '重量 / 耐荷重', h('span', { class: 'grow' }), h('b', { class: 'num', style: { color: w > carryCapacity(lo) + 13 ? '#d24a3a' : w > carryCapacity(lo) ? '#e0c060' : '' } }, `${w.toFixed(1)} / ${carryCapacity(lo)} kg`)),
         h('div', { class: 'sep' }),
         h('div', { class: 'row' }, 'メイン', h('span', { class: 'grow' }), h('span', {}, prim ? ITEMS[prim.id].name : '— なし —')),
         h('div', { class: 'row' }, 'アーマー', h('span', { class: 'grow' }), h('span', {}, armor ? `${ITEMS[armor.id].short} (クラス${ITEMS[armor.id].armor.cls})` : '— なし —')),

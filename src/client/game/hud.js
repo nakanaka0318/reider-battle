@@ -109,9 +109,9 @@ export class HUD {
       E.vignette.style.background = `radial-gradient(ellipse at center, transparent ${55 - low * 20}%, rgba(120,0,0,${low * 0.55 + (g.hurtFlash || 0) * 0.4}) 100%)`;
     }
     E.stBar.i.style.width = P.stamina + '%';
-    const wt = S?.wt ?? 0;
-    E.weight.textContent = `重量 ${wt.toFixed(1)} kg`;
-    E.weight.style.color = wt > 40 ? '#ff7060' : wt > 25 ? '#e0c060' : '#bbb';
+    const wt = S?.wt ?? 0, cap = S?.cap ?? 22;
+    E.weight.textContent = `重量 ${wt.toFixed(1)} / ${cap} kg`;
+    E.weight.style.color = wt > cap + 18 ? '#ff7060' : wt > cap ? '#e0c060' : '#bbb';
     // 武器
     const w = P.weapon();
     if (w) {

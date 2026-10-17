@@ -330,5 +330,9 @@ export const MISC_ITEMS = [
   { id: 'arc_memory_core', name: 'ARC記憶コア', short: '記憶コア', cat: 'intel', sub: 'data', w: 1, h: 1, value: 160000, rarity: 4, weight: 0.4, stack: 1, icon: 'core', color: '#6a30c0', loot: ['machine', 'tech'], desc: 'ARCの記憶領域を抜き出したコア。彼らが何を見てきたのかが分かる。' },
   { id: 'surveillance_footage', name: '監視カメラ映像', short: '監視映像', cat: 'intel', sub: 'data', w: 1, h: 1, value: 9000, rarity: 1, weight: 0.05, stack: 1, icon: 'usb', color: '#5a5a6a', loot: ['office', 'tech'], desc: '施設の監視映像を記録したメモリ。誰が何を持ち出したかが映っている。' },
   { id: 'undeveloped_film', name: '未現像フィルム', short: 'フィルム', cat: 'intel', sub: 'data', w: 1, h: 1, value: 6000, rarity: 1, weight: 0.03, stack: 5, icon: 'photo', color: '#2a2a2a', loot: ['residential', 'military'], desc: '現像されていない写真フィルム。何が写っているかは現像してのお楽しみ。' },
+  // 反重力装置：持っているだけで耐荷重が増える（どのバッグ・ポケット・セキュアコンテナに入れても有効）
+  { id: 'ag_patch', name: '反重力パッチ', short: '反重力P', cat: 'machine', sub: 'antigrav', w: 1, h: 1, value: 48000, rarity: 2, weight: 0.1, stack: 1, carry: 8, icon: 'chip', color: '#40c8e0', loot: ['machine', 'tech'], shop: 'yan', desc: 'ARC の浮遊ユニットを切り出した薄い基板。体に貼ると荷物が少し軽く感じる。耐荷重 +8 kg。' },
+  { id: 'ag_module', name: '反重力モジュール', short: '反重力M', cat: 'machine', sub: 'antigrav', w: 1, h: 1, value: 165000, rarity: 3, weight: 0.3, stack: 1, carry: 18, icon: 'magnet', color: '#7a60f0', loot: ['machine', 'tech'], shop: 'yan', desc: 'ホーネットの姿勢制御に使われる重力場発生器。耐荷重 +18 kg。' },
+  { id: 'ag_core', name: '反重力コア', short: '反重力C', cat: 'machine', sub: 'antigrav', w: 1, h: 1, value: 520000, rarity: 4, weight: 0.5, stack: 1, carry: 35, icon: 'core', color: '#b040f0', loot: ['machine', 'valuable'], desc: 'センチネルを浮かせている心臓部。どんな荷物も羽のように軽くなる。耐荷重 +35 kg。' },
   { id: 'executive_laptop', name: '企業幹部のノートPC', short: '幹部PC', cat: 'intel', sub: 'data', w: 2, h: 1, value: 110000, rarity: 4, weight: 1.6, stack: 1, icon: 'laptop', color: '#1a1a20', loot: ['office'], desc: 'ARC開発企業の幹部が使っていた端末。隠された真実が眠っている。' },
 ];

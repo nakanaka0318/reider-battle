@@ -174,6 +174,7 @@ export function buyPrice(def) {
 export function traderStock(trader) {
   const maxR = traderMaxRarity(level());
   return ITEM_LIST.filter((d) => {
+    if (d.shop) return d.shop === trader.id && d.rarity <= maxR;
     if (d.cat === 'money' || d.cat === 'secure') return trader.sells.includes('secure_small') && d.id === 'sc_alpha';
     if (d.loot?.includes('machine') && d.cat !== 'grenade') return false;
     if (d.rarity > maxR || d.rarity >= 5) return false;

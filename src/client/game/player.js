@@ -1,6 +1,6 @@
 // ローカルプレイヤーの操作・移動・射撃
 import { ITEMS, weaponStats } from '../../shared/items.js';
-import { rootWeight, allItems, countAmmo } from '../../shared/inventory.js';
+import { rootWeight, allItems, countAmmo, carryCapacity } from '../../shared/inventory.js';
 import { dirFromYawPitch, clamp } from '../../shared/math.js';
 
 export class LocalPlayer {
@@ -46,8 +46,9 @@ export class LocalPlayer {
       const d = ITEMS[it.id];
       speedPen += d.armor?.speed || d.speed || 0;
     }
-    const over = Math.max(0, w - 22);
-    return { f: Math.max(0.45, 1 - over / 60 - speedPen), w };
+    const cap = carryCapacity(this.inv);
+    const over = Math.max(0, w - cap);
+    return { f: Math.max(0.45, 1 - over / 60 - speedPen), w, cap };
   }
 
   update(dt, input) {

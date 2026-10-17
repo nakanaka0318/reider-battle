@@ -72,6 +72,7 @@ export function itemTooltip(item, extra = {}) {
   }
   if (def.grenade) { row('信管', def.grenade.fuse + ' 秒'); row('効果範囲', def.grenade.radius + ' m'); }
   if (def.key) row('対応', def.sub === 'keycard' ? 'キーカード' : '鍵');
+  if (def.carry) row('耐荷重', `+${def.carry} kg（持っているだけで有効）`);
   const val = itemValue(item);
   return h('div', {},
     h('div', { class: 'tt-name', style: { color: RARITY_COLORS[def.rarity] } }, def.name),

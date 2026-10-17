@@ -78,7 +78,7 @@ export class RaidInventory {
     }
     const health = h('div', { class: 'panel' }, h('div', { class: 'panel-h' }, '体力'),
       h('div', { class: 'health-panel' }, doll, h('div', { class: 'health-stats' },
-        h('div', {}, `エネルギー ${Math.round(S.en ?? 100)}`), h('div', {}, `水分 ${Math.round(S.hy ?? 100)}`), h('div', {}, `重量 ${(S.wt ?? 0).toFixed(1)} kg`),
+        h('div', {}, `エネルギー ${Math.round(S.en ?? 100)}`), h('div', {}, `水分 ${Math.round(S.hy ?? 100)}`), h('div', {}, `重量 ${(S.wt ?? 0).toFixed(1)} / ${S.cap ?? 22} kg`),
         status.map((s) => h('div', { style: { color: '#f88' } }, s)),
         h('div', { class: 'mini', style: { marginTop: '6px' } }, ...(g.touch ? ['医薬品をタップ →「使用する」'] : ['医薬品をダブルクリックで使用', h('br'), 'H キー：状態に合う医薬品を自動使用'])))));
     const equip = h('div', { class: 'panel', style: { overflow: 'auto' } }, h('div', { class: 'panel-h' }, '装備', h('span', { class: 'sub' }, `所持品の価値 ${Math.round(itemsVal(g.inv) / 1000)}k C`)), h('div', { class: 'panel-b' }, this.view.equipment('self')));

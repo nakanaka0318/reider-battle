@@ -3,7 +3,7 @@ import { buildMap } from './map.js';
 import { World } from './world.js';
 import { makeRng, dirFromYawPitch, vdist, vnorm } from './math.js';
 import { ITEMS, createItem, weaponStats, pickLootItem, lootInstance, CONTAINERS, modFits, itemValue, slotAccepts } from './items.js';
-import { newGrid, autoInsert, autoEquipOrInsert, moveItem, findItem, removeItem, countAmmo, takeAmmo, allItems, rootWeight, newActorInv } from './inventory.js';
+import { newGrid, autoInsert, autoEquipOrInsert, moveItem, findItem, removeItem, countAmmo, takeAmmo, allItems, rootWeight, carryCapacity, newActorInv } from './inventory.js';
 import { newHealth, damageHuman, humanZone, humanHeight, HUMAN_R, rayCylinder, raySphere, tickHealth, applyMed, totalHp, TOTAL_HP, PARTS, applyPartDamage } from './combat.js';
 import { MACHINES, generateLoadout, botName, machineLoot } from './bots.js';
 import { applyOp } from './invops.js';
@@ -956,7 +956,7 @@ export class Raid {
           en: r2(a.health.energy), hy: r2(a.health.hydration), stims: a.health.stims.map((s) => [s.t | 0]),
           mag: w?.mag ? [w.mag.count, w.mag.ammo] : null, reload: this.time < a.w.reloadUntil ? r2(a.w.reloadUntil - this.time) : 0,
           use: a.w.useItem ? r2(a.w.useUntil - this.time) : 0, mode: a.w.mode, ext: a.extractId ? [a.extractId, r2(a.extractT)] : null,
-          wt: r2(rootWeight(a.inv)), paid: a.extractPaid || null,
+          wt: r2(rootWeight(a.inv)), cap: carryCapacity(a.inv), paid: a.extractPaid || null,
         });
       }
       if (c.invDirty && a.inv) { c.invDirty = false; c.send({ t: 'inv', inv: clone(a.inv) }); }
