@@ -17,6 +17,32 @@ const html = `<title>RAIDER BATTLE</title>
 :root { color-scheme: dark; }
 ${safeCss}
 </style>
+<script>
+// 起動・実行中のエラーを画面に出す（真っ黒な画面のままにしない）
+(function () {
+  var seen = {}, n = 0;
+  function show(m) {
+    m = String(m && m.message ? m.message + (m.stack ? '\\n' + String(m.stack).split('\\n').slice(0, 3).join('\\n') : '') : m);
+    if (seen[m] || n >= 3) return; seen[m] = 1; n++;
+    var d = document.getElementById('rb-err');
+    if (!d) {
+      d = document.createElement('div'); d.id = 'rb-err';
+      d.style.cssText = 'position:fixed;left:8px;right:8px;top:8px;z-index:99999;background:#2a1414;border:1px solid #a33;color:#fdd;font:12px/1.5 monospace;padding:10px;white-space:pre-wrap;max-height:45vh;overflow:auto';
+      var b = document.createElement('button'); b.textContent = '再読み込み'; b.style.cssText = 'float:right;margin-left:8px;padding:6px 10px';
+      b.onclick = function () { location.reload(); };
+      var c = document.createElement('button'); c.textContent = '閉じる'; c.style.cssText = 'float:right;margin-left:8px;padding:6px 10px';
+      c.onclick = function () { d.remove(); };
+      d.appendChild(b); d.appendChild(c);
+      d.appendChild(document.createTextNode('エラーが起きました。この画面のスクリーンショットを送ってください。\\n'));
+      document.body.appendChild(d);
+    }
+    d.appendChild(document.createTextNode('\\n' + m + '\\n'));
+  }
+  window.__rbError = show;
+  addEventListener('error', function (e) { if (e.message) show(e.message + (e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ':' + e.colno + ')' : '')); });
+  addEventListener('unhandledrejection', function (e) { var r = e.reason; if (r && (r.name === 'NotAllowedError' || r.name === 'AbortError')) return; show(r); });
+})();
+</script>
 <div id="app"></div>
 <script type="module">
 ${safeJs}

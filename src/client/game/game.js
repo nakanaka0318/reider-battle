@@ -74,6 +74,9 @@ export class Game {
     const R = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: q !== 'low', powerPreference: 'high-performance' });
     R.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? (q === 'high' ? 1.25 : q === 'medium' ? 1 : 0.75) : q === 'high' ? 1.5 : 1));
     R.setSize(innerWidth, innerHeight, false);
+    // スマホでメモリが足りなくなると描画が失われることがある → 真っ黒のままにせず知らせる
+    this.canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); this.onContextLost(); });
+    this.canvas.addEventListener('webglcontextrestored', () => { this.ctxLost = false; this.ctxEl?.remove(); this.ctxEl = null; });
     R.shadowMap.enabled = q !== 'low';
     R.shadowMap.type = THREE.PCFSoftShadowMap;
     R.toneMapping = THREE.ACESFilmicToneMapping;
@@ -198,7 +201,7 @@ export class Game {
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
     this.fps = this.fps * 0.95 + (1 / Math.max(0.001, dt)) * 0.05;
-    try { this.frame(dt); } catch (e) { console.error(e); }
+    try { this.frame(dt); } catch (e) { console.error(e); window.__rbError?.(e); }
   }
 
   frame(dt) {
@@ -307,7 +310,21 @@ export class Game {
   }
 
   // ---------------------------------------------------------------- 描画
+  onContextLost() {
+    this.ctxLost = true;
+    if (this.ctxEl) return;
+    const reload = h('button', { class: 'btn', style: { display: 'none', marginTop: '10px' }, onclick: () => location.reload() }, '再読み込み（このレイドは未帰還になります）');
+    this.ctxEl = h('div', { class: 'pause', style: { zIndex: 60 } }, h('div', { class: 'col', style: { alignItems: 'center', maxWidth: '520px', textAlign: 'center', lineHeight: 1.7 } },
+      h('b', { style: { fontSize: '18px' } }, '画面の描画が止まりました'),
+      h('div', { class: 'mini' }, '端末のメモリ不足などで、グラフィックがリセットされました。復帰を待っています…'),
+      h('div', { class: 'mini' }, 'たびたび起きる場合は、設定の「画質」を「低」にしてください。'),
+      reload));
+    this.root.append(this.ctxEl);
+    setTimeout(() => { if (this.ctxLost) reload.style.display = ''; }, 4000);
+  }
+
   render(dt) {
+    if (this.ctxLost) return;
     const P = this.player;
     const cam = this.camera;
     if (P) {
