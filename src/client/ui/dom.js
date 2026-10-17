@@ -71,12 +71,12 @@ export function hideTooltip() { if (tip) tip.style.display = 'none'; }
 let ctxEl = null;
 export function contextMenu(x, y, items) {
   closeContext();
-  ctxEl = h('div', { class: 'ctx' }, items.map((it) => h('div', { class: it.disabled ? 'dis' : '', onmousedown: (e) => { e.stopPropagation(); if (it.disabled) return; closeContext(); it.fn(); } }, it.text)));
+  ctxEl = h('div', { class: 'ctx' }, items.map((it) => h('div', { class: it.disabled ? 'dis' : '', onpointerdown: (e) => { e.stopPropagation(); e.preventDefault(); if (it.disabled) return; closeContext(); it.fn(); } }, it.text)));
   document.body.append(ctxEl);
   const r = ctxEl.getBoundingClientRect();
   ctxEl.style.left = Math.min(x, innerWidth - r.width - 6) + 'px';
   ctxEl.style.top = Math.min(y, innerHeight - r.height - 6) + 'px';
-  setTimeout(() => addEventListener('mousedown', closeContext, { once: true }), 0);
+  setTimeout(() => addEventListener('pointerdown', closeContext, { once: true }), 0);
 }
 export function closeContext() { ctxEl?.remove(); ctxEl = null; }
 

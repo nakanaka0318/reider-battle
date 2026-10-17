@@ -40,7 +40,8 @@ function migrate(p) {
 }
 
 function defaultSettings() {
-  return { sens: 1.0, fov: 75, volume: 0.8, music: 0.4, quality: 'high', invertY: false, serverUrl: '', showFps: false, adsSensMul: 0.75 };
+  const touch = typeof window !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+  return { sens: 1.0, fov: touch ? 70 : 75, volume: 0.8, music: 0.4, quality: touch ? 'medium' : 'high', invertY: false, serverUrl: '', showFps: false, adsSensMul: 0.75, touchSens: 1.0 };
 }
 
 export function stashRows(p = P) {

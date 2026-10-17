@@ -46,12 +46,13 @@ export class Input {
     document.addEventListener('pointerlockchange', this.h.pl);
   }
   lock() {
+    if (this.touch) { this.locked = true; return; }
     try {
       const p = this.el.requestPointerLock({ unadjustedMovement: true });
       if (p?.catch) p.catch(() => { try { this.el.requestPointerLock(); } catch { /* noop */ } });
     } catch { try { this.el.requestPointerLock(); } catch { /* noop */ } }
   }
-  unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
+  unlock() { if (this.touch) { this.locked = false; this.mouse = [false, false, false]; return; } if (document.pointerLockElement) document.exitPointerLock(); }
   down(code) { return this.enabled && this.keys.has(code); }
   pressed(code) { return this.enabled && this.justPressed.has(code); }
   endFrame() { this.justPressed.clear(); this.mouseJust = [false, false, false]; this.mdx = 0; this.mdy = 0; this.wheel = 0; }

@@ -87,14 +87,14 @@ function settingsModal() {
   const row = (label, input) => h('div', { class: 'slider-row' }, label, input, h('span'));
   const range = (key, min, max, step) => {
     const v = h('span', { class: 'num' }, S[key]);
-    const el = h('div', { class: 'slider-row' }, { sens: 'マウス感度', adsSensMul: 'ADS 感度倍率', fov: '視野角', volume: '音量' }[key],
+    const el = h('div', { class: 'slider-row' }, { sens: 'マウス感度', adsSensMul: 'ADS 感度倍率', fov: '視野角', volume: '音量', touchSens: 'タッチ感度' }[key],
       h('input', { type: 'range', min, max, step, value: S[key], oninput: (e) => { S[key] = parseFloat(e.target.value); v.textContent = S[key]; PF.save(); } }), v);
     return el;
   };
   const qual = h('select', { onchange: (e) => { S.quality = e.target.value; PF.save(); } },
     ['high', 'medium', 'low'].map((q) => h('option', { value: q, selected: S.quality === q }, { high: '高（影・ブルーム・草）', medium: '中', low: '低（影なし）' }[q])));
   modal('設定', h('div', { style: { width: '460px' } },
-    range('sens', 0.2, 3, 0.05), range('adsSensMul', 0.3, 1.5, 0.05), range('fov', 60, 100, 1), range('volume', 0, 1, 0.05),
+    matchMedia('(pointer: coarse)').matches ? range('touchSens', 0.2, 3, 0.05) : range('sens', 0.2, 3, 0.05), range('adsSensMul', 0.3, 1.5, 0.05), range('fov', 60, 100, 1), range('volume', 0, 1, 0.05),
     row('画質', qual),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.invertY, onchange: (e) => { S.invertY = e.target.checked; PF.save(); } }), 'マウス Y 軸反転'),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.showFps, onchange: (e) => { S.showFps = e.target.checked; PF.save(); } }), 'FPS・PING を表示'),

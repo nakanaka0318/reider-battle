@@ -12,6 +12,7 @@ export function cellSize() {
 const SLOT_SIZE = { primary: [5, 2], secondary: [5, 2], holster: [3, 2], helmet: [2, 2], armor: [3, 3], rig: [3, 3], backpack: [3, 3], secure: [2, 2] };
 
 let drag = null; // 現在のドラッグ状態（全 InvView 共通）
+let touchMode = false; // 一度でもタッチ操作されたらホバーのツールチップを出さない
 
 export class InvView {
   constructor(opts) {
@@ -128,8 +129,8 @@ export class InvView {
       if (n) el.append(h('span', { class: 'cnt' }, n));
     }
     if (it.fir && !opts.fit) el.append(h('span', { class: 'fir' }, '✔'));
-    el.addEventListener('mousedown', (e) => this.onItemDown(e, ref, it, el));
-    el.addEventListener('mouseenter', (e) => { if (!drag) showTooltip(itemTooltip(it, this.o.tooltipExtra?.(ref, it) || {}), e.clientX, e.clientY); });
+    el.addEventListener('pointerdown', (e) => this.onItemDown(e, ref, it, el));
+    el.addEventListener('mouseenter', (e) => { if (!drag && !touchMode) showTooltip(itemTooltip(it, this.o.tooltipExtra?.(ref, it) || {}), e.clientX, e.clientY); });
     el.addEventListener('mousemove', (e) => moveTooltip(e.clientX, e.clientY));
     el.addEventListener('mouseleave', hideTooltip);
     el.addEventListener('contextmenu', (e) => {
@@ -145,6 +146,8 @@ export class InvView {
     if (e.button !== 0) return;
     e.preventDefault();
     hideTooltip();
+    const isTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
+    if (isTouch) touchMode = true;
     if (e.ctrlKey || e.metaKey) {
       const dst = this.o.quickTarget?.(ref, it);
       if (dst) this.o.apply(ref, dst, { uid: it.uid, target: { auto: true } });
@@ -159,33 +162,55 @@ export class InvView {
       grabX: fitted ? 0 : Math.floor((e.clientX - r.left) / C), grabY: fitted ? 0 : Math.floor((e.clientY - r.top) / C),
       lastX: e.clientX, lastY: e.clientY,
     };
+    const pid = e.pointerId;
     const move = (ev) => {
+      if (ev.pointerId !== pid) return;
       if (!pre.started) {
-        if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 5) return;
+        if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < (isTouch ? 10 : 5)) return;
         pre.started = true;
         drag = pre;
         el.classList.add('dragging');
         pre.ghost = h('div', { class: 'drag-ghost' });
         document.body.append(pre.ghost);
+        if (isTouch) {
+          // タッチ操作ではもう一本の指で押せる回転ボタンを出す
+          pre.rotBtn = h('div', { class: 'drag-rotate' }, '↻ 回転');
+          pre.rotBtn.addEventListener('pointerdown', (re) => { re.preventDefault(); re.stopPropagation(); if (drag) { drag.rot = !drag.rot; updateGhost(); updateHover(drag.lastX, drag.lastY); } });
+          document.body.append(pre.rotBtn);
+        }
         updateGhost();
       }
       pre.lastX = ev.clientX; pre.lastY = ev.clientY;
       updateHover(ev.clientX, ev.clientY);
     };
     const up = (ev) => {
-      removeEventListener('mousemove', move);
-      removeEventListener('mouseup', up);
-      if (!pre.started) return;
+      if (ev.pointerId !== pid) return;
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
+      if (!pre.started) {
+        // タッチでのタップ：メニュー（詳細・使用・移動など）を開く
+        if (isTouch && ev.type === 'pointerup') {
+          const items = this.o.contextItems?.(ref, it) || [];
+          const dst = this.o.quickTarget?.(ref, it);
+          const all = items.some((x) => x.text.startsWith('詳細')) ? [] : [{ text: 'ℹ 詳細', fn: () => { showTooltip(itemTooltip(it, this.o.tooltipExtra?.(ref, it) || {}), ev.clientX, ev.clientY); setTimeout(() => addEventListener('pointerdown', hideTooltip, { once: true }), 0); } }];
+          if (dst) all.push({ text: ref === 'self' ? '⇢ 移動（相手側へ）' : ref === 'stash' ? '⇢ 装備へ移動' : ref === 'loadout' ? '⇢ 倉庫へ移動' : '⇢ 取る', fn: () => this.o.apply(ref, dst, { uid: it.uid, target: { auto: true } }) });
+          contextMenu(ev.clientX, ev.clientY, [...all, ...items]);
+        }
+        return;
+      }
       const res = pre.hover;
       clearHover();
+      pre.rotBtn?.remove();
       pre.ghost.remove();
       el.classList.remove('dragging');
       drag = null;
       if (res && res.ok) this.o.apply(pre.ref, res.ref, { uid: it.uid, target: res.target });
       else if (!res && this.o.onDropOutside) this.o.onDropOutside(pre.ref, it, ev);
     };
-    addEventListener('mousemove', move);
-    addEventListener('mouseup', up);
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
   }
 }
 

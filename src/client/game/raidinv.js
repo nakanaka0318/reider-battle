@@ -80,11 +80,12 @@ export class RaidInventory {
       h('div', { class: 'health-panel' }, doll, h('div', { class: 'health-stats' },
         h('div', {}, `エネルギー ${Math.round(S.en ?? 100)}`), h('div', {}, `水分 ${Math.round(S.hy ?? 100)}`), h('div', {}, `重量 ${(S.wt ?? 0).toFixed(1)} kg`),
         status.map((s) => h('div', { style: { color: '#f88' } }, s)),
-        h('div', { class: 'mini', style: { marginTop: '6px' } }, '医薬品をダブルクリックで使用', h('br'), 'H キー：状態に合う医薬品を自動使用'))));
+        h('div', { class: 'mini', style: { marginTop: '6px' } }, ...(g.touch ? ['医薬品をタップ →「使用する」'] : ['医薬品をダブルクリックで使用', h('br'), 'H キー：状態に合う医薬品を自動使用'])))));
     const equip = h('div', { class: 'panel', style: { overflow: 'auto' } }, h('div', { class: 'panel-h' }, '装備', h('span', { class: 'sub' }, `所持品の価値 ${Math.round(itemsVal(g.inv) / 1000)}k C`)), h('div', { class: 'panel-b' }, this.view.equipment('self')));
     const left = h('div', { class: 'side', style: { gap: '10px', maxHeight: '100%' } }, health,
       h('div', { class: 'panel drop-zone', style: { padding: '14px', textAlign: 'center', color: '#999', borderStyle: 'dashed' } }, 'ここにドロップして地面に捨てる'),
-      h('div', { class: 'mini', style: { lineHeight: 1.7 } }, 'ドラッグで移動 / R で回転 / Ctrl+クリックで素早く移動', h('br'), '右クリックでメニュー / Tab で閉じる'));
+      h('div', { class: 'mini', style: { lineHeight: 1.7 } }, ...(g.touch ? ['タップでメニュー / ドラッグで移動', h('br'), 'ドラッグ中に上の「回転」をもう一本の指で押すと回転'] : ['ドラッグで移動 / R で回転 / Ctrl+クリックで素早く移動', h('br'), '右クリックでメニュー / Tab で閉じる'])));
+    left.prepend(h('button', { class: 'btn primary', style: { width: '100%' }, onclick: () => g.toggleInv(false) }, '✕ 閉じる（Tab）'));
     this.el.append(left, h('div', { class: 'side', style: { maxHeight: '100%', overflow: 'auto' } }, equip));
     if (g.loot) {
       const L = g.loot;

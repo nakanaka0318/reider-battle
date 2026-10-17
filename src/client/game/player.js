@@ -77,6 +77,7 @@ export class LocalPlayer {
     if (input.down('KeyS')) fz += 1;
     if (input.down('KeyA')) fx -= 1;
     if (input.down('KeyD')) fx += 1;
+    if (input.moveX || input.moveY) { fx = input.moveX; fz = input.moveY; }
     const using = !!self.use;
     const fracLeg = self.frac && (self.frac.legL || self.frac.legR) && !(self.pain > 0);
     const wantSprint = input.down('ShiftLeft') && fz < 0 && !using && this.stamina > 3 && !fracLeg;
@@ -93,7 +94,9 @@ export class LocalPlayer {
     const len = Math.hypot(fx, fz);
     let tx = 0, tz = 0;
     if (len > 0) {
-      fx /= len; fz /= len;
+      // キーボードは正規化、アナログスティックは倒し具合（最低 50%）で速度が変わる
+      const m = len > 1 ? 1 : Math.max(0.5, len);
+      fx *= m / len; fz *= m / len;
       const s = Math.sin(this.yaw), c = Math.cos(this.yaw);
       tx = (fx * c + fz * s) * speed;
       tz = (-fx * s + fz * c) * speed;

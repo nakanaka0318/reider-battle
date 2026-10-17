@@ -227,6 +227,7 @@ export class HUD {
     E.hotbar.innerHTML = '';
     slots.forEach((it, i) => {
       const el = h('div', { class: 'hs' + (it && it.uid === activeUid ? ' active' : '') }, h('b', {}, String(i + 4)));
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onHotbar?.(i); });
       if (it) {
         el.style.backgroundImage = `url(${getItemIcon(ITEMS[it.id])})`;
         if (ITEMS[it.id].med?.uses > 1) el.append(h('span', {}, it.uses));

@@ -21,6 +21,7 @@ import { ViewModel } from './viewmodel.js';
 import { Audio3D } from './audio.js';
 import { HUD } from './hud.js';
 import { Input } from './input.js';
+import { TouchControls, IS_TOUCH, enterFullscreenLandscape } from './touch.js';
 import { LocalPlayer } from './player.js';
 import { HumanView, MachineView } from './actors3d.js';
 import { buildWeapon } from './weapons3d.js';
@@ -68,7 +69,7 @@ export class Game {
     this.canvas = h('canvas', { class: 'view' });
     this.root.prepend(this.canvas);
     const R = this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: q !== 'low', powerPreference: 'high-performance' });
-    R.setPixelRatio(Math.min(devicePixelRatio, q === 'high' ? 1.5 : 1));
+    R.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? (q === 'high' ? 1.25 : q === 'medium' ? 1 : 0.75) : q === 'high' ? 1.5 : 1));
     R.setSize(innerWidth, innerHeight, false);
     R.shadowMap.enabled = q !== 'low';
     R.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -100,6 +101,7 @@ export class Game {
     this.hud = new HUD(this.root);
     this.rinv = new RaidInventory(this);
     this.input = new Input(this.canvas);
+    if (IS_TOUCH) { this.touch = new TouchControls(this); this.hud.onHotbar = (i) => this.useQuick(i); }
     this.input.onLockChange = (locked) => { if (!locked && !this.rinv.open && !this.mapOpen && !this.ended && !this.pauseEl) this.showPause(); };
     // 懐中電灯
     this.flashlight = new THREE.SpotLight('#fff6e8', 0, 50, 0.48, 0.55, 1.4);
@@ -155,8 +157,8 @@ export class Game {
     this.loadingEl.append(
       h('div', { class: 'logo', style: { fontSize: '42px' } }, this.map.name),
       h('div', { class: 'tip' }, `${{ day: '昼', dusk: '夕暮れ', night: '夜' }[this.opts.timeOfDay]} ・ ${this.opts.mode === 'online' ? 'オンライン PvPvE' : 'オール NPC'} ・ 制限時間 ${Math.round(this.timeLeft / 60)} 分`),
-      h('button', { class: 'btn primary big', onclick: () => this.begin() }, 'クリックして開始'),
-      h('div', { class: 'tip' }, 'O: 脱出地点 ／ Tab: インベントリ ／ M: マップ ／ F: 漁る'),
+      h('button', { class: 'btn primary big', onclick: () => this.begin() }, IS_TOUCH ? 'タップして開始' : 'クリックして開始'),
+      h('div', { class: 'tip' }, IS_TOUCH ? '左下: 移動 ／ 右側スワイプ: 視点 ／ 上部ボタン: 一時停止・バッグ・マップ・脱出地点' : 'O: 脱出地点 ／ Tab: インベントリ ／ M: マップ ／ F: 漁る'),
     );
     this.last = performance.now();
     this.running = true;
@@ -164,6 +166,7 @@ export class Game {
   }
 
   begin() {
+    if (IS_TOUCH) enterFullscreenLandscape();
     this.loadingEl.remove();
     this.audio.resume();
     this.input.lock();
@@ -205,6 +208,7 @@ export class Game {
     if (this.exHeld && Math.floor(this.time) !== this._exT) { this._exT = Math.floor(this.time); this.hud.showExtracts(this, true); }
     const uiOpen = this.rinv.open || this.mapOpen || this.pauseEl;
     inp.enabled = !uiOpen || this.rinv.open;
+    if (this.touch) { this.touch.update(); if (uiOpen) { inp.moveX = 0; inp.moveY = 0; } }
     if (!uiOpen && inp.locked) {
       P.update(dt, inp);
       if (inp.pressed('KeyF')) this.interact();
@@ -731,7 +735,8 @@ export class Game {
   toggleMap() {
     if (this.mapOpen) { this.mapOpen.remove(); this.mapOpen = null; this.input.lock(); return; }
     const cv = h('canvas', { width: Math.min(innerWidth, innerHeight) * 0.9, height: Math.min(innerWidth, innerHeight) * 0.9, style: { border: '1px solid #444', boxShadow: '0 0 40px #000' } });
-    this.mapOpen = h('div', { class: 'pause' }, h('div', { class: 'col', style: { alignItems: 'center' } }, cv, h('div', { class: 'mini' }, 'M で閉じる ・ 黄色の矢印が現在地')));
+    this.mapOpen = h('div', { class: 'pause' }, h('div', { class: 'col', style: { alignItems: 'center' } }, cv, h('div', { class: 'mini' }, IS_TOUCH ? 'タップで閉じる ・ 黄色の矢印が現在地' : 'M で閉じる ・ 黄色の矢印が現在地')));
+    this.mapOpen.addEventListener('click', () => { if (this.mapOpen) { this.mapOpen.remove(); this.mapOpen = null; this.input.lock(); } });
     this.root.append(this.mapOpen);
     drawMapPreview(cv, { player: { x: this.player.pos.x, z: this.player.pos.z, yaw: this.player.yaw }, extracts: this.extracts });
     this.input.unlock();
@@ -749,13 +754,13 @@ export class Game {
     this.pauseEl = h('div', { class: 'pause' }, h('div', { class: 'panel box' },
       h('div', { class: 'panel-h' }, '一時停止', h('span', { class: 'sub' }, this.net.online ? '※オンラインではゲームは止まりません' : 'オフライン：レイドは停止中')),
       h('div', { class: 'panel-b' },
-        slider('マウス感度', 'sens', 0.2, 3, 0.05),
+        IS_TOUCH ? slider('タッチ感度', 'touchSens', 0.2, 3, 0.05) : slider('マウス感度', 'sens', 0.2, 3, 0.05),
         slider('ADS 感度倍率', 'adsSensMul', 0.3, 1.5, 0.05),
         slider('視野角 (FOV)', 'fov', 60, 100, 1),
         slider('音量', 'volume', 0, 1, 0.05, (v) => this.audio.setVolume(v)),
         h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.showFps, onchange: (e) => { S.showFps = e.target.checked; } }), 'FPS を表示'),
         h('div', { class: 'sep' }),
-        helpKeys(),
+        IS_TOUCH ? null : helpKeys(),
         h('div', { class: 'sep' }),
         h('div', { class: 'row' },
           h('button', { class: 'btn primary', onclick: () => this.closePause() }, '再開'),
@@ -892,6 +897,7 @@ export class Game {
     this.input?.dispose();
     this.audio?.dispose();
     this.rinv?.dispose();
+    this.touch?.dispose();
     this.hud?.dispose();
     try { this.renderer?.dispose(); this.renderer?.forceContextLoss(); } catch { /* noop */ }
     this.root.remove();
