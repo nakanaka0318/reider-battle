@@ -4,6 +4,7 @@ import { Menu } from './ui/menu.js';
 import * as PF from './profile.js';
 import { ITEMS } from '../shared/items.js';
 import { allItems } from '../shared/inventory.js';
+import { music } from './music.js';
 
 const app = document.getElementById('app');
 let menu = null;
@@ -13,6 +14,8 @@ function clear() { if (menu) { menu.destroy(); menu = null; } app.innerHTML = ''
 function titleScreen() {
   clear();
   const P = PF.loadProfile();
+  music.setVolume(P?.settings?.music ?? 0.4);
+  music.play();
   // レイド中にページを閉じた場合は MIA 扱い
   if (P?.inRaid) {
     const sec = P.inRaid.secure;
@@ -78,6 +81,8 @@ function showHelp() {
 
 function showMenu() {
   clear();
+  music.setVolume(PF.profile().settings.music ?? 0.4);
+  music.play();
   menu = new Menu(app, { onDeploy: deploy, onSettings: settingsModal });
 }
 
@@ -87,14 +92,14 @@ function settingsModal() {
   const row = (label, input) => h('div', { class: 'slider-row' }, label, input, h('span'));
   const range = (key, min, max, step) => {
     const v = h('span', { class: 'num' }, S[key]);
-    const el = h('div', { class: 'slider-row' }, { sens: 'マウス感度', adsSensMul: 'ADS 感度倍率', fov: '視野角', volume: '音量', touchSens: 'タッチ感度' }[key],
-      h('input', { type: 'range', min, max, step, value: S[key], oninput: (e) => { S[key] = parseFloat(e.target.value); v.textContent = S[key]; PF.save(); } }), v);
+    const el = h('div', { class: 'slider-row' }, { sens: 'マウス感度', adsSensMul: 'ADS 感度倍率', fov: '視野角', volume: '効果音の音量', touchSens: 'タッチ感度', music: 'BGM の音量' }[key],
+      h('input', { type: 'range', min, max, step, value: S[key], oninput: (e) => { S[key] = parseFloat(e.target.value); v.textContent = S[key]; if (key === 'music') music.setVolume(S[key]); PF.save(); } }), v);
     return el;
   };
   const qual = h('select', { onchange: (e) => { S.quality = e.target.value; PF.save(); } },
     ['high', 'medium', 'low'].map((q) => h('option', { value: q, selected: S.quality === q }, { high: '高（影・ブルーム・草）', medium: '中', low: '低（影なし）' }[q])));
   modal('設定', h('div', { style: { width: '460px' } },
-    matchMedia('(pointer: coarse)').matches ? range('touchSens', 0.2, 3, 0.05) : range('sens', 0.2, 3, 0.05), range('adsSensMul', 0.3, 1.5, 0.05), range('fov', 60, 100, 1), range('volume', 0, 1, 0.05),
+    matchMedia('(pointer: coarse)').matches ? range('touchSens', 0.2, 3, 0.05) : range('sens', 0.2, 3, 0.05), range('adsSensMul', 0.3, 1.5, 0.05), range('fov', 60, 100, 1), range('volume', 0, 1, 0.05), range('music', 0, 1, 0.05),
     row('画質', qual),
     row('エイムアシスト', h('select', { onchange: (e) => { S.aimAssist = +e.target.value; PF.save(); } }, ['なし', '弱', '標準', '強'].map((t, i) => h('option', { value: i, selected: (S.aimAssist ?? 0) === i }, t)))),
     h('label', { class: 'row mini', style: { margin: '6px 0' } }, h('input', { type: 'checkbox', checked: !!S.autoFire, onchange: (e) => { S.autoFire = e.target.checked; PF.save(); } }), 'オートファイア（照準が敵に重なると自動で撃つ）'),
@@ -113,6 +118,7 @@ async function deploy(opts) {
   P.inRaid = { t: Date.now(), secure: lo.equip.secure ? JSON.parse(JSON.stringify(lo.equip.secure)) : null };
   PF.save();
   clear();
+  music.stop();
   const { Game } = await import('./game/game.js');
   const game = new Game(app, {
     profile: P,
@@ -131,6 +137,7 @@ async function deploy(opts) {
 
 function showResult(res) {
   clear();
+  music.play();
   const P = PF.profile();
   const before = PF.itemsValue(P.loadout);
   delete P.inRaid;
@@ -179,4 +186,5 @@ setupRotateHint();
 
 // ブラウザの戻る・リロードで進行が消えないよう保存
 addEventListener('beforeunload', () => PF.save());
+music.unlockOnGesture();
 titleScreen();
