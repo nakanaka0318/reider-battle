@@ -71,7 +71,7 @@ wss.on('connection', (ws) => {
       const p = m.profile || {};
       const name = String(p.name || 'レイダー').slice(0, 16);
       try {
-        raid.addClient(cid, { name, inv: sanitizeInv(p.inv), health: p.health, level: p.level, easy: !!p.easy }, send);
+        raid.addClient(cid, { name, inv: sanitizeInv(p.inv), health: p.health, level: p.level, easy: !!p.easy, perks: clampPerks(p.perks || {}) }, send);
         joined = true;
         console.log(`[join] ${name} (${cid}) players=${raid.clients.size}`);
       } catch (e) {
@@ -111,3 +111,8 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`RAIDER BATTLE サーバー起動: http://localhost:${PORT}  (WebSocket: ws://localhost:${PORT}/ws)`);
 });
+
+function clampPerks(p = {}) {
+  const c = (v, lo, hi, d) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d);
+  return { carry: c(p.carry, 0, 25, 0), stamDrain: c(p.stamDrain, 0.5, 1, 1), stamRegen: c(p.stamRegen, 1, 1.6, 1), recoil: c(p.recoil, 0.65, 1, 1), useTime: c(p.useTime, 0.5, 1, 1) };
+}

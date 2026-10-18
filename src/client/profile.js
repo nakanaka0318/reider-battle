@@ -409,7 +409,7 @@ export function applyRaidResult(res) {
   const s = P.stats;
   s.raids = (s.raids || 0) + 1;
   const st = res.stats || {};
-  let xp = 0;
+  let xp = 0, insurance = null;
   const before = itemsValue(P.loadout);
   let gained = 0;
   if (res.survived) {
@@ -424,6 +424,7 @@ export function applyRaidResult(res) {
     questEvent('loot_value', { value: gained });
   } else {
     if (res.mia) s.mia = (s.mia || 0) + 1; else s.deaths = (s.deaths || 0) + 1;
+    if (res.insured?.length) insurance = claimInsurance(res.insured);
     const lo = newActorInv();
     if (res.secure) lo.equip.secure = res.secure;
     else if (P.loadout.equip.secure) lo.equip.secure = P.loadout.equip.secure;
@@ -452,7 +453,7 @@ export function applyRaidResult(res) {
   P.history.unshift(entry);
   P.history = P.history.slice(0, 30);
   changed();
-  return { ...entry, levelUp: level() > lvBefore, stashed };
+  return { ...entry, levelUp: level() > lvBefore, stashed, insurance };
 }
 
 // レイド内で入手したアイテム（✔ 印）をポケット・リグ・バックパック・セキュアコンテナから倉庫へ移す。
@@ -963,4 +964,109 @@ export function claimPending() {
   M.pending = M.pending.filter((p) => { const it = createItem(p.item, { count: p.count }); if (autoInsert(P.stash, it)) { n++; return false; } return true; });
   changed();
   return n;
+}
+
+// ---------------------------------------------------------------- 取り寄せ（素材をいつでも割高で買える）
+export const IMPORT_MARKUP = 2.5;
+let materialCache = null;
+// 素材：バーター・機械パーツ・情報・貴重品（クラフトやハイドアウト強化に使う物を含む）
+export function materialDefs() {
+  if (materialCache) return materialCache;
+  const used = new Set();
+  for (const r of RECIPES) for (const [id] of r.in) used.add(id);
+  for (const S of Object.values(STATIONS)) for (const lv of S.costs) for (const [id] of lv) used.add(id);
+  // 弾薬・医薬品・装備はトレーダーが安く売っているので除く
+  materialCache = ITEM_LIST.filter((d) => ['barter', 'machine', 'intel', 'valuable'].includes(d.cat));
+  materialCache.used = used;
+  return materialCache;
+}
+export function importPrice(def) { return Math.ceil(itemValue(createItem(def.id)) * IMPORT_MARKUP / 10) * 10; }
+// n 個買う。戻り値 { got, spent, why }
+export function buyImport(id, n = 1, commit = true) {
+  const def = ITEMS[id];
+  const price = importPrice(def);
+  let got = 0, why = null;
+  for (let k = 0; k < n; k++) {
+    if (P.money < price) { why = 'クレジットが足りない'; break; }
+    if (!autoInsert(P.stash, createItem(id))) { why = '倉庫に空きがない'; break; }
+    P.money -= price; got++;
+  }
+  if (commit && got) changed();
+  return { got, spent: got * price, why };
+}
+// 必要な物のうち倉庫に足りない分と、その取り寄せ代
+export function missingFor(list) {
+  const out = [];
+  for (const [id, n] of list) { const lack = n - countInStash(id); if (lack > 0) out.push({ id, n: lack, cost: importPrice(ITEMS[id]) * lack }); }
+  return { items: out, cost: out.reduce((s, x) => s + x.cost, 0) };
+}
+export function buyMissing(list) {
+  const m = missingFor(list);
+  let spent = 0, why = null;
+  for (const x of m.items) { const r = buyImport(x.id, x.n, false); spent += r.spent; if (r.got < x.n) { why = r.why; break; } }
+  changed();
+  return { spent, ok: !why, why };
+}
+
+// ---------------------------------------------------------------- 保険
+// 出撃前にかけておくと、死亡・未帰還のとき装備（中身・弾は除く）が一定確率で戻ってくる
+export const INSURANCE_RATE = 0.12, INSURANCE_RETURN = 0.8;
+const INSURE_SLOTS = ['primary', 'secondary', 'holster', 'helmet', 'armor', 'rig', 'backpack'];
+function insuredCopy(it) {
+  const c = JSON.parse(JSON.stringify(it));
+  if (c.grids) for (const g of c.grids) g.items = [];
+  if (c.mag) c.mag.count = 0;
+  delete c.fir;
+  return c;
+}
+export function insurableItems() { return INSURE_SLOTS.map((s) => P.loadout.equip[s]).filter(Boolean).map(insuredCopy); }
+export function insuranceCost() { return Math.round(insurableItems().reduce((s, it) => s + itemValue(it), 0) * INSURANCE_RATE / 10) * 10; }
+// 出撃が始まってから呼ぶ。成功したら保険の対象を P.inRaid に記録
+export function buyInsurance() {
+  const cost = insuranceCost();
+  const items = insurableItems();
+  if (!items.length || P.money < cost || !P.inRaid) return 0;
+  P.money -= cost;
+  P.inRaid.insured = items;
+  changed();
+  return cost;
+}
+function claimInsurance(items) {
+  const back = [], lost = [];
+  for (const it of items || []) {
+    if (Math.random() < INSURANCE_RETURN) { (P.mailbox ||= []).push(it); back.push(ITEMS[it.id].name); } else lost.push(ITEMS[it.id].name);
+  }
+  claimMailbox(false);
+  return { back, lost };
+}
+// 届いた物（保険の返却など）を倉庫へ。入らなかった分は残る
+export function claimMailbox(commit = true) {
+  if (!P.mailbox?.length) return 0;
+  let n = 0;
+  P.mailbox = P.mailbox.filter((it) => { if (autoInsert(P.stash, it)) { n++; return false; } return true; });
+  if (commit) changed();
+  return n;
+}
+
+// ---------------------------------------------------------------- トレーニング（お金で永続的に強化）
+export const TRAINING = {
+  str: { name: '筋力トレーニング', icon: '💪', effect: (l) => `耐荷重 +${l * 5} kg`, costs: [80000, 200000, 450000, 900000, 1800000] },
+  end: { name: '持久力トレーニング', icon: '🏃', effect: (l) => `スタミナ消費 -${l * 10}% ・ 回復 +${l * 12}%`, costs: [80000, 200000, 450000, 900000, 1800000] },
+  aim: { name: '射撃トレーニング', icon: '🎯', effect: (l) => `反動 -${l * 7}%`, costs: [100000, 250000, 550000, 1100000, 2200000] },
+  med: { name: '救命トレーニング', icon: '✚', effect: (l) => `医薬品の使用時間 -${l * 10}%`, costs: [60000, 150000, 350000, 700000, 1400000] },
+};
+export function trainingLevel(id) { return P.training?.[id] || 0; }
+export function trainingCost(id) { return TRAINING[id].costs[trainingLevel(id)] ?? null; }
+export function train(id) {
+  const c = trainingCost(id);
+  if (c == null || P.money < c) return false;
+  P.money -= c;
+  (P.training ||= {})[id] = trainingLevel(id) + 1;
+  changed();
+  return true;
+}
+// レイドに持ち込む効果
+export function perks() {
+  const l = (id) => trainingLevel(id);
+  return { carry: l('str') * 5, stamDrain: 1 - l('end') * 0.1, stamRegen: 1 + l('end') * 0.12, recoil: 1 - l('aim') * 0.07, useTime: 1 - l('med') * 0.1 };
 }

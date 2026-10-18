@@ -46,7 +46,7 @@ export class LocalPlayer {
       const d = ITEMS[it.id];
       speedPen += d.armor?.speed || d.speed || 0;
     }
-    const cap = carryCapacity(this.inv);
+    const cap = carryCapacity(this.inv) + (this.g.perks?.carry || 0);
     const over = Math.max(0, w - cap);
     return { f: Math.max(0.45, 1 - over / 60 - speedPen), w, cap };
   }
@@ -115,8 +115,9 @@ export class LocalPlayer {
     this.moving = this.speed > 0.3;
     // スタミナ
     const stimSt = g.stimStamina || 1;
-    if (this.sprint && this.moving) { this.stamina = Math.max(0, this.stamina - dt * 8.5); this.staminaDelay = 1.2; }
-    else { this.staminaDelay -= dt; if (this.staminaDelay <= 0) this.stamina = Math.min(100, this.stamina + dt * 11 * stimSt * (this.crouch ? 1.2 : 1)); }
+    const pk = g.perks || {};
+    if (this.sprint && this.moving) { this.stamina = Math.max(0, this.stamina - dt * 8.5 * (pk.stamDrain ?? 1)); this.staminaDelay = 1.2; }
+    else { this.staminaDelay -= dt; if (this.staminaDelay <= 0) this.stamina = Math.min(100, this.stamina + dt * 11 * stimSt * (this.crouch ? 1.2 : 1) * (pk.stamRegen ?? 1)); }
     // 足音
     if (this.moving && this.phys.onGround) {
       this.stepT += dt * this.speed * (this.sprint ? 0.42 : 0.55);
@@ -209,8 +210,9 @@ export class LocalPlayer {
     g.onLocalShot(w, def, st, d);
     // 反動
     const ergoK = 1.2 - st.ergo / 200;
-    const kv = st.recoilV * 0.012 * (this.ads ? 0.8 : 1) * (this.crouch ? 0.85 : 1);
-    const kh = (Math.random() - 0.5) * st.recoilH * 0.012 * 2;
+    const rk = this.g.perks?.recoil ?? 1;
+    const kv = st.recoilV * 0.012 * (this.ads ? 0.8 : 1) * (this.crouch ? 0.85 : 1) * rk;
+    const kh = (Math.random() - 0.5) * st.recoilH * 0.012 * 2 * rk;
     this.pitch += kv * 0.55; // 永続的な跳ね上がり
     this.recoilP += kv * 0.9 * ergoK;
     this.yaw += kh * 0.4;

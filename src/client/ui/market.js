@@ -11,8 +11,8 @@ const left = (ms) => {
 };
 
 // 戻り値：{ el, tick }。tick は毎秒呼んで残り時間と価格を更新する
-export function buildMarketPage(onChange) {
-  const page = h('div', { class: 'page' });
+function buildAuction(onChange) {
+  const page = h('div', {});
   const grid = h('div', { class: 'market-grid' });
   const head = h('div', { class: 'panel', style: { marginBottom: '10px' } });
   const cards = new Map();
@@ -84,4 +84,77 @@ export function buildMarketPage(onChange) {
     if (PF.profile().market.lots.some((l) => now >= l.ends) || now - last > 10000) { last = now; render(); } else update();
   };
   return { el: page, tick };
+}
+
+// ---------------------------------------------------------------- 取り寄せ：素材をいつでも割高で買える
+function buildImport(onChange) {
+  const el = h('div', {});
+  const defs = PF.materialDefs();
+  let q = '', cat = 'used';
+  const list = h('div', { class: 'col', style: { gap: '2px' } });
+  const chips = h('div', { class: 'row', style: { flexWrap: 'wrap', gap: '4px', margin: '6px 0' } });
+  const search = h('input', { class: 'search', placeholder: '名前で検索', style: { flex: 1, padding: '8px', minWidth: '160px' } });
+  search.addEventListener('input', () => { q = search.value.trim(); renderList(); });
+  const cats = [...new Set(defs.map((d) => d.cat))];
+  const renderChips = () => {
+    chips.innerHTML = '';
+    const chip = (key, label) => h('span', { class: 'chip' + (cat === key ? ' active' : ''), onclick: () => { cat = key; renderChips(); renderList(); } }, label);
+    chips.append(chip('used', 'クラフト・強化の素材'), chip('all', 'すべて'), ...cats.map((c) => chip(c, CAT_NAMES[c] || c)));
+  };
+  const row = (d) => {
+    const price = PF.importPrice(d);
+    const have = h('span', {});
+    const upd = () => { have.textContent = ` ・ 倉庫に ${PF.countInStash(d.id)} 個`; };
+    const buy = (n) => () => {
+      const r = PF.buyImport(d.id, n);
+      if (r.got) toast(`${d.name} を ${r.got} 個、${fmt(r.spent)} C で取り寄せた${r.why ? `（${r.why}）` : ''}`, 'good');
+      else toast(r.why, 'warn');
+      upd(); onChange?.();
+    };
+    upd();
+    const ic = h('i', { class: 'ic', style: { width: '44px', height: '34px', backgroundImage: `url(${getItemIcon(d)})` } });
+    ic.addEventListener('mouseenter', (e) => showTooltip(itemTooltip(createItem(d.id), {}), e.clientX, e.clientY));
+    ic.addEventListener('mousemove', (e) => moveTooltip(e.clientX, e.clientY));
+    ic.addEventListener('mouseleave', hideTooltip);
+    return h('div', { class: 'shop-row', style: { gridTemplateColumns: '44px 1fr auto', alignItems: 'center' } }, ic,
+      h('span', { class: 'nm', style: { color: RARITY_COLORS[d.rarity] } }, d.name,
+        h('small', {}, `${CAT_NAMES[d.cat] || ''} ・ 相場 ${fmt(PF.importPrice(d) / PF.IMPORT_MARKUP)} C${defs.used.has(d.id) ? ' ・ 素材' : ''}`, have)),
+      h('span', { class: 'row', style: { gap: '4px' } },
+        h('button', { class: 'btn small primary', onclick: buy(1) }, `${fmt(price)} C`),
+        h('button', { class: 'btn small', onclick: buy(5) }, '×5')));
+  };
+  const renderList = () => {
+    list.innerHTML = '';
+    const ql = q.toLowerCase();
+    const shown = defs.filter((d) => (cat === 'all' || (cat === 'used' ? defs.used.has(d.id) : d.cat === cat)) && (!ql || d.name.toLowerCase().includes(ql) || d.short.toLowerCase().includes(ql)))
+      .sort((a, b) => a.rarity - b.rarity || a.value - b.value);
+    list.append(h('div', { class: 'mini', style: { margin: '2px 0 4px' } }, `${shown.length} 件`));
+    for (const d of shown) list.append(row(d));
+  };
+  el.append(
+    h('div', { class: 'panel', style: { marginBottom: '8px' } },
+      h('div', { class: 'panel-h' }, '取り寄せ', h('span', { class: 'sub' }, `素材はいつでも買える（相場の ${PF.IMPORT_MARKUP} 倍）`)),
+      h('div', { class: 'panel-b mini', style: { lineHeight: 1.7 } }, 'クラフトやハイドアウト強化に使う素材、バーター品、機械パーツ、情報をすべて扱う。高いが確実に手に入る。買った物は倉庫に届く（✔ 印なし）。',
+        h('div', { class: 'row', style: { marginTop: '6px' } }, search))),
+    chips, list);
+  renderChips(); renderList();
+  return el;
+}
+
+let mode = 'auction';
+export function buildMarketPage(onChange) {
+  const page = h('div', { class: 'page' });
+  const switcher = h('div', { class: 'row', style: { gap: '6px', marginBottom: '8px', flexWrap: 'wrap' } });
+  const body = h('div', {});
+  let auction = null;
+  const show = () => {
+    switcher.innerHTML = '';
+    const tab = (key, label) => h('button', { class: 'btn' + (mode === key ? ' primary' : ''), onclick: () => { mode = key; show(); } }, label);
+    switcher.append(tab('auction', 'オークション（入札・即決）'), tab('import', '取り寄せ（素材をいつでも購入）'));
+    body.innerHTML = '';
+    if (mode === 'auction') { auction = buildAuction(onChange); body.append(auction.el); } else { auction = null; body.append(buildImport(onChange)); }
+  };
+  show();
+  page.append(switcher, body);
+  return { el: page, tick: () => auction?.tick() };
 }

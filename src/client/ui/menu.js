@@ -107,6 +107,7 @@ export class Menu {
         h('div', { class: 'inv-col', style: { flex: '0 0 auto' } },
           h('div', { class: 'panel', style: { display: 'flex', flexDirection: 'column', minHeight: 0, maxHeight: '100%' } },
             h('div', { class: 'panel-h' }, '倉庫', h('span', { class: 'sub', id: 'stash-info' }),
+              P.mailbox?.length ? h('button', { class: 'btn small', onclick: () => { const n = PF.claimMailbox(); toast(n ? `${n} 個を倉庫に入れた` : '倉庫に空きがない', n ? 'good' : 'warn'); this.inv.refresh(); this.build(); } }, `届いた物 ${P.mailbox.length}`) : null,
               h('button', { class: 'btn small primary', onclick: () => this.sellModal() }, 'まとめて売却'),
               h('button', { class: 'btn small', onclick: () => this.sortStash() }, '整列'),
               h('button', { class: 'btn small', onclick: () => { const n = PF.depositCredits(); PF.commit(); this.inv.refresh(); toast(n ? `${fmt(n)} C を入金した` : '入金できるクレジットはない'); } }, '入金')),
@@ -468,7 +469,9 @@ export class Menu {
       if (cost) {
         b.append(h('div', { class: 'mini' }, lvl ? '次のレベルへの強化' : '建設に必要なもの'),
           h('div', { class: 'ing' }, ingChip('credits_money', cost.money, P.money >= cost.money), cost.items.map(([id, n]) => ingChip(id, n, PF.countInStash(id) >= n))),
-          h('button', { class: 'btn small primary', style: { marginTop: '6px' }, disabled: !PF.canUpgrade(sid), onclick: () => { if (PF.upgradeStation(sid)) { toast(`${S.name} を強化した`, 'good'); this.build(); } } }, lvl ? '強化' : '建設'));
+          h('div', { class: 'row', style: { gap: '6px', marginTop: '6px', flexWrap: 'wrap' } },
+            h('button', { class: 'btn small primary', disabled: !PF.canUpgrade(sid), onclick: () => { if (PF.upgradeStation(sid)) { toast(`${S.name} を強化した`, 'good'); this.build(); } } }, lvl ? '強化' : '建設'),
+            this.buyMissingBtn(cost.items)));
         if (sid === 'stash') b.append(h('div', { class: 'mini', style: { marginTop: '4px' } }, `倉庫の行数 +${S.rows[lvl]}`));
       } else b.append(h('div', { class: 'mini' }, '最大レベル'));
       if (lvl > 0) {
@@ -489,15 +492,46 @@ export class Menu {
               h('div', { class: 'row' }, h('b', { style: { color: RARITY_COLORS[out.rarity] } }, `${out.name} ×${r.out[0][1]}`), r.lvl > lvl ? h('span', { class: 'tag' }, `要Lv${r.lvl}`) : null),
               h('div', { class: 'ing' }, r.in.map(([id, n]) => ingChip(id, n, PF.countInStash(id) >= n))),
               h('div', { class: 'mini' }, `所要時間 ${fmtDur(r.time * PF.CRAFT_SPEED)}` + (r.keep ? '（GPUは消費しない）' : ''))),
-            h('button', { class: 'btn small', disabled: !ok, onclick: () => { if (PF.startCraft(r)) { toast('製作を開始した', 'good'); this.build(); } } }, '製作')));
+            h('div', { class: 'col', style: { gap: '4px', alignItems: 'stretch' } },
+              h('button', { class: 'btn small', disabled: !ok, onclick: () => { if (PF.startCraft(r)) { toast('製作を開始した', 'good'); this.build(); } } }, '製作'),
+              r.lvl <= lvl ? this.buyMissingBtn(r.in) : null)));
         }
       }
       card.append(b);
       grid.append(card);
     }
-    page.append(grid);
+    page.append(this.trainingPanel(), grid);
     this.refreshHideoutProgress();
     return page;
+  }
+
+  // 足りない素材を取り寄せ（割高）で買うボタン。足りていれば null
+  buyMissingBtn(list) {
+    const m = PF.missingFor(list);
+    if (!m.items.length) return null;
+    const P = PF.profile();
+    return h('button', { class: 'btn small', disabled: P.money < m.cost, title: '足りない素材をオークションの取り寄せ価格（相場の 2.5 倍）で買う', onclick: () => {
+      const r = PF.buyMissing(list);
+      toast(r.ok ? `不足素材を ${fmt(r.spent)} C で取り寄せた` : `${r.why}（${fmt(r.spent)} C 分は購入済み）`, r.ok ? 'good' : 'warn');
+      this.build();
+    } }, `不足素材を購入 ${fmt(m.cost)} C`);
+  }
+
+  trainingPanel() {
+    const P = PF.profile();
+    const rows = Object.entries(PF.TRAINING).map(([id, T]) => {
+      const lv = PF.trainingLevel(id), cost = PF.trainingCost(id), max = T.costs.length;
+      return h('div', { class: 'row', style: { padding: '6px 0', borderBottom: '1px solid var(--line)', gap: '8px', flexWrap: 'wrap' } },
+        h('b', { style: { minWidth: '150px' } }, `${T.icon} ${T.name}`),
+        h('span', { class: 'tag' }, `Lv ${lv} / ${max}`),
+        h('span', { class: 'mini grow' }, lv ? `現在：${T.effect(lv)}` : '未訓練', cost != null ? `　→ 次：${T.effect(lv + 1)}` : ''),
+        cost != null
+          ? h('button', { class: 'btn small primary', disabled: P.money < cost, onclick: () => { if (PF.train(id)) { toast(`${T.name} が Lv${lv + 1} になった`, 'good'); this.build(); } } }, `訓練 ${fmt(cost)} C`)
+          : h('span', { class: 'mini' }, '最大'));
+    });
+    return h('div', { class: 'panel', style: { marginBottom: '10px' } },
+      h('div', { class: 'panel-h' }, 'トレーニング', h('span', { class: 'sub' }, 'お金で永続的に能力を上げる（死んでも消えない）')),
+      h('div', { class: 'panel-b' }, rows));
   }
   refreshHideoutProgress() {
     for (const p of this.progressEls || []) {
@@ -580,6 +614,14 @@ export class Menu {
         opt('density', 'low', '低', '探索重視'), opt('density', 'normal', '標準', ''), opt('density', 'high', '高', '激戦'))) : null,
       o.mode === 'offline' ? h('div', { class: 'opt-group' }, h('label', { class: 'h' }, 'レイド時間'), h('div', { class: 'opts' },
         opt('duration', 20, '20 分', ''), opt('duration', 30, '30 分', ''), opt('duration', 45, '45 分', ''))) : null,
+      (() => {
+        const cost = PF.insuranceCost();
+        if (!cost) return null;
+        return h('div', { class: 'opt-group' }, h('label', { class: 'h' }, '保険'),
+          h('label', { class: 'row', style: { gap: '8px', cursor: 'pointer' } },
+            h('input', { type: 'checkbox', checked: !!o.insure, style: { width: '20px', height: '20px' }, onchange: (e) => { o.insure = e.target.checked; save(); } }),
+            h('span', {}, `装備に保険をかける（${fmt(cost)} C）`, h('div', { class: 'mini' }, `死亡・未帰還のとき、武器・防具・リグ・バックパックが ${Math.round(PF.INSURANCE_RETURN * 100)}% の確率で戻ってくる（中身と弾は戻らない）。所持金 ${fmt(P.money)} C`))));
+      })(),
       warns.map((t) => h('div', { class: 'warn-box' }, '⚠ ' + t)),
       h('div', { style: { marginTop: '16px', textAlign: 'center' } }, h('button', { class: 'btn primary big', onclick: () => this.onDeploy({ ...o, serverUrl: P.settings.serverUrl || defaultServer() }) }, '出 撃')),
     ));

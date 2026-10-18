@@ -47,6 +47,8 @@ export class Game {
     this.actors = new Map();
     this.ground = new Map();
     this.nades = new Map();
+    // トレーニングの効果（耐荷重・スタミナ・反動など）
+    this.perks = { carry: 0, stamDrain: 1, stamRegen: 1, recoil: 1, useTime: 1, ...(this.opts.perks || {}) };
     // 投擲物の見た目は共有（投げるたびに新しいマテリアルを作るとシェーダーの再コンパイルで止まる）
     this.nadeGeo = new THREE.SphereGeometry(0.06, 8, 6);
     this.nadeMat = new THREE.MeshStandardMaterial({ color: '#4c5a3a', roughness: 0.6 });
@@ -129,7 +131,7 @@ export class Game {
     // 接続
     this.loadText.textContent = this.opts.mode === 'online' ? 'サーバーに接続中…' : 'レイドを生成中…';
     await frame();
-    const profileMsg = { name: this.profile.name, inv: this.opts.loadout, health: this.profile.health, level: this.opts.level, easy: this.opts.difficulty === 'easy' };
+    const profileMsg = { name: this.profile.name, inv: this.opts.loadout, health: this.profile.health, level: this.opts.level, easy: this.opts.difficulty === 'easy', perks: this.perks };
     this.net = this.opts.mode === 'online' ? new WSTransport(this.opts.serverUrl) : new LocalTransport(this.opts);
     try {
       await this.net.connect(profileMsg);

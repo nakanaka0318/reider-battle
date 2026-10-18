@@ -20,9 +20,9 @@ function titleScreen() {
   music.play();
   // レイド中にページを閉じた場合は MIA 扱い
   if (P?.inRaid) {
-    const sec = P.inRaid.secure;
+    const sec = P.inRaid.secure, insured = P.inRaid.insured;
     delete P.inRaid;
-    PF.applyRaidResult({ survived: false, mia: true, killer: 'レイド離脱', secure: sec, stats: {} });
+    PF.applyRaidResult({ survived: false, mia: true, killer: 'レイド離脱', secure: sec, insured, stats: {} });
     setTimeout(() => toast('前回のレイドを途中で離脱したため、装備を失った（MIA）', 'warn'), 300);
   }
   const cv = h('canvas', { class: 'bgfx' });
@@ -171,7 +171,7 @@ async function deploy(opts) {
   app.innerHTML = '';
   const game = new Game(app, {
     profile: P,
-    opts: { ...opts, loadout, level: PF.level() },
+    opts: { ...opts, loadout, level: PF.level(), perks: PF.perks() },
     onEnd: (res) => showResult(res),
   });
   try {
@@ -179,6 +179,10 @@ async function deploy(opts) {
     // レイドが始まってから「出撃中」を記録（途中でページを閉じたら未帰還扱い）
     P.inRaid = { t: Date.now(), secure: lo.equip.secure ? JSON.parse(JSON.stringify(lo.equip.secure)) : null };
     PF.save();
+    if (opts.insure) {
+      const paid = PF.buyInsurance();
+      if (paid) toast(`装備に保険をかけた（${fmt(paid)} C）`, 'good');
+    }
   } catch (e) {
     console.error(e);
     toast(e.message || 'レイドを開始できませんでした', 'warn');
@@ -192,8 +196,9 @@ function showResult(res) {
   music.play();
   const P = PF.profile();
   const before = PF.itemsValue(P.loadout);
+  const insured = P.inRaid?.insured;
   delete P.inRaid;
-  const r = PF.applyRaidResult(res);
+  const r = PF.applyRaidResult({ ...res, insured });
   const st = res.stats || {};
   const ok = res.survived;
   const title = ok ? '生 還' : res.mia ? 'M I A' : '死 亡';
@@ -214,6 +219,8 @@ function showResult(res) {
     r.levelUp ? h('div', { style: { textAlign: 'center', color: '#e8c26a', fontSize: '20px', margin: '10px 0', fontWeight: 700 } }, `レベルアップ！ → レベル ${PF.level()}`) : null,
     lootList.length ? h('div', { class: 'panel', style: { marginTop: '12px' } }, h('div', { class: 'panel-h' }, 'レイド内で入手したアイテム'), h('div', { class: 'panel-b', style: { display: 'flex', flexWrap: 'wrap', gap: '4px' } }, lootList.map((i) => h('span', { class: 'tag', style: { fontSize: '12px' } }, ITEMS[i.id].name + (i.count > 1 ? ` ×${i.count}` : ''))))) : null,
     !ok && res.secure ? h('div', { class: 'mini', style: { textAlign: 'center', marginTop: '8px' } }, 'セキュアコンテナの中身は無事だった。') : null,
+    r.insurance?.back.length ? h('div', { class: 'mini', style: { textAlign: 'center', marginTop: '6px', color: '#8ad070' } }, `保険で戻ってきた：${r.insurance.back.join('、')}${PF.profile().mailbox?.length ? '（倉庫が満杯の分は倉庫画面の「届いた物」から受け取れる）' : '（倉庫へ）'}`) : null,
+    r.insurance?.lost.length ? h('div', { class: 'mini', style: { textAlign: 'center', marginTop: '2px', color: '#d2a03a' } }, `回収できなかった：${r.insurance.lost.join('、')}`) : null,
     h('div', { class: 'row', style: { justifyContent: 'center', gap: '10px', marginTop: '20px', flexWrap: 'wrap' } },
       !ok && PF.listFavorites().length ? h('button', { class: 'btn big', onclick: () => { showMenu(); menu.favoritesModal(); } }, '★ お気に入り装備で編成') : null,
       r.stashed?.uids?.length ? h('button', { class: 'btn big', onclick: () => { showMenu(); menu.sellModal({ raidUids: r.stashed.uids }); } }, '持ち帰った物を売る') : null,

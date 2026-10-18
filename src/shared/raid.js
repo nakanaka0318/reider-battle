@@ -221,6 +221,7 @@ export class Raid {
     a.slot = a.inv.equip.primary ? 'primary' : a.inv.equip.secondary ? 'secondary' : 'holster';
     a.cid = cid;
     a.easy = !!profile.easy;
+    a.perks = profile.perks || {};
     const c = { cid, actorId: a.id, send, viewing: null, invDirty: true, knownInfo: new Set(), level: profile.level || 1 };
     this.clients.set(cid, c);
     for (const it of allItems(a.inv)) delete it.fir;
@@ -549,9 +550,10 @@ export class Raid {
     const def = ITEMS[f.item.id];
     if (!def.med) return;
     a.w.useItem = uid;
-    a.w.useUntil = this.time + def.med.use;
+    const useT = def.med.use * Math.max(0.5, Math.min(1, a.perks?.useTime ?? 1));
+    a.w.useUntil = this.time + useT;
     a.w.reloadUntil = 0;
-    this.emit({ t: 'use', id: a.id, item: def.id, dur: def.med.use });
+    this.emit({ t: 'use', id: a.id, item: def.id, dur: useT });
   }
   cancelUse(a) {
     if (!a.w.useItem) return;
@@ -956,7 +958,7 @@ export class Raid {
           en: r2(a.health.energy), hy: r2(a.health.hydration), stims: a.health.stims.map((s) => [s.t | 0]),
           mag: w?.mag ? [w.mag.count, w.mag.ammo] : null, reload: this.time < a.w.reloadUntil ? r2(a.w.reloadUntil - this.time) : 0,
           use: a.w.useItem ? r2(a.w.useUntil - this.time) : 0, mode: a.w.mode, ext: a.extractId ? [a.extractId, r2(a.extractT)] : null,
-          wt: r2(rootWeight(a.inv)), cap: carryCapacity(a.inv), paid: a.extractPaid || null,
+          wt: r2(rootWeight(a.inv)), cap: carryCapacity(a.inv) + (a.perks?.carry || 0), paid: a.extractPaid || null,
         });
       }
       if (c.invDirty && a.inv) { c.invDirty = false; c.send({ t: 'inv', inv: clone(a.inv) }); }
