@@ -361,12 +361,14 @@ export function buildMap(seed = 1337) {
     for (let x = x0 + 6; x < x1; x += 6) box(x - 0.2, H - 1.2, z0, x + 0.2, H - 0.8, z1, 'metal', '#4a4a48');
     // 中二階（北側 z0..z0+8, y=4.5）とオフィス
     const my = 4.5;
+    // 中二階の奥行き（事務所・制御室の前に幅 2.4 m の通路がある）
+    const md = 10;
     // 階段：1 階から北へまっすぐ上ると中二階の手すりの切れ目に出る（幅 2 m、両側に手すり）
-    const sx = x0 + 18, sw = 2.0, sn = Math.round(my / 0.26), slen = sn * 0.3, sz0 = z0 + 8, sz1 = sz0 + slen;
+    const sx = x0 + 18, sw = 2.0, sn = Math.round(my / 0.26), slen = sn * 0.3, sz0 = z0 + md, sz1 = sz0 + slen;
     stairs({ x: sx, z: sz1, axis: 'z', dir: -1, w: sw }, 0, my);
-    box(x0, my - 0.25, z0, x1, my, z0 + 8, 'concrete_floor');
+    box(x0, my - 0.25, z0, x1, my, z0 + md, 'concrete_floor');
     // 中二階の手すり（階段の上だけ開いている）
-    wall('x', z0 + 8, x0, x1, my, my + 1.0, 0.08, 'metal', [{ c: sx, w: sw + 0.2, y0: my, y1: my + 2 }], '#c8a020');
+    wall('x', z0 + md, x0, x1, my, my + 1.0, 0.08, 'metal', [{ c: sx, w: sw + 0.2, y0: my, y1: my + 2 }], '#c8a020');
     // 階段の手すり：段ごとの高さに合わせた支柱と横棒（黄色で遠くからでも分かる）
     for (let i = 0; i <= sn; i += 2) {
       const z = sz1 - i * 0.3, top = Math.min(my, (i + 1) * (my / sn)) + 1.0;
@@ -379,7 +381,7 @@ export function buildMap(seed = 1337) {
     // 上り口の床に黄色と黒の警告ライン
     box(sx - sw / 2, 0.12, sz1, sx + sw / 2, 0.14, sz1 + 0.6, 'metal', '#d8b020');
     // 中二階の支柱
-    for (let x = x0 + 4; x < x1; x += 8) box(x - 0.2, 0, z0 + 7.8, x + 0.2, my - 0.25, z0 + 8.2, 'metal', '#c8a020');
+    for (let x = x0 + 4; x < x1; x += 8) box(x - 0.2, 0, z0 + md - 0.2, x + 0.2, my - 0.25, z0 + md + 0.2, 'metal', '#c8a020');
     // オフィス（事務所 key_office）: x0..x0+12、制御室（key_control）: x1-12..x1
     wall('x', z0 + 7.6, x0, x0 + 12, my, H - 2, 0.2, 'plaster', [{ c: x0 + 6, w: 1.4, y0: my, y1: my + 2.3 }, { c: x0 + 2.5, w: 1.6, y0: my + 1.0, y1: my + 2.2 }, { c: x0 + 9.5, w: 1.6, y0: my + 1.0, y1: my + 2.2 }], '#b8b0a0');
     wall('z', x0 + 12, z0, z0 + 7.6, my, H - 2, 0.2, 'plaster', [], '#b8b0a0');
@@ -694,10 +696,22 @@ export function buildMap(seed = 1337) {
       for (let k = 0; k < 3; k++) { F.bed(x0 + 2 + k * 5, z1 - 1.5, 0.12, 1); cont('locker', x0 + 4 + k * 5, 0.12, z1 - 0.5, 2); }
       F.table(x0 + 9, z0 + 18, 0.12, 3, 1.2, { tech: 2, food: 1, valuable: 1 });
       cont('fridge', x0 + 0.6, 0.12, z0 + 14, 1);
+      // 研究員の私物：金庫・武器ケース・研究用ケース
+      cont('safe', x0 + 16.4, 0.12, z0 + 13, 3);
+      cont('weapon_box', x0 + 15, 0.12, z1 - 1.6, 2);
+      cont('lab_case', x0 + 1, 0.12, z0 + 18, 1);
+      cont('lab_case', x0 + 1, 0.12, z0 + 22, 1);
+      loose(x0 + 9, 1.0, z0 + 18, { valuable: 3, tech: 2, intel: 1 });
       // グリーン（医療）
       for (let k = 0; k < 3; k++) { F.bed(x0 + 21 + k * 4.5, z1 - 1.6, 0.12, 1); cont('med_case', x0 + 23 + k * 4.5, 0.12, z1 - 0.6, 2); }
       F.table(x0 + 26, z0 + 18, 0.12, 4, 1.2, { medical: 3, tech: 1 });
       cont('lab_case', x0 + 33, 0.12, z0 + 13, 3);
+      // 試薬保管庫：研究用ケース・医療ケース・金庫
+      cont('lab_case', x0 + 19.2, 0.12, z0 + 13, 1);
+      cont('lab_case', x0 + 33, 0.12, z0 + 17, 3);
+      cont('med_case', x0 + 19.2, 0.12, z0 + 16, 1);
+      cont('safe', x0 + 33.2, 0.12, z1 - 3.4, 3);
+      loose(x0 + 26, 1.0, z0 + 18, { medical: 3, valuable: 2, tech: 1 });
       // 東側：エレベーターホール
       F.shelf(x0 + 44, z0 + 20, 6, 'z', 0.12, 4, { tech: 3, machine: 1 });
       cont('arc_cache', x0 + 40, 0.12, z1 - 1.5, 0);
@@ -721,8 +735,16 @@ export function buildMap(seed = 1337) {
       loose(x0 + 44, y + 0.1, z0 + 28, { valuable: 3, tech: 2, machine: 1 });
       // 北半分（サーバールーム）
       for (let k = 0; k < 4; k++) box(x0 + 33 + k * 4, y, z0 + 15, x0 + 34.5 + k * 4, y + 2.4, z0 + 20, 'metal', '#2a2e34');
-      cont('pc', x0 + 50, y, z0 + 14, 3);
       cont('filing', x0 + 31, y, z0 + 13, 1);
+      // ブラック区画（試作兵器庫）：ブラックキーカードで開く
+      wall('z', x0 + 47.5, z0 + 12, z0 + 22, y, y + fh, 0.25, 'concrete', [{ c: z0 + 17, w: 1.4, y0: y, y1: y + 2.4 }], '#3a3e44');
+      door('z', x0 + 47.5, z0 + 17, y, 1.4, 2.4, { id: 'lab_black', locked: 'lab_exit', name: 'ブラック区画（試作兵器庫）', color: '#1a1a1a' });
+      cont('pc', x0 + 50, y, z0 + 13.2, 3);
+      cont('weapon_box', x1 - 1.5, y, z0 + 16, 1);
+      cont('weapon_box', x1 - 1.5, y, z0 + 19.5, 1);
+      cont('arc_cache', x0 + 49.5, y, z0 + 21, 0);
+      cont('lab_case', x0 + 49, y, z0 + 15.5, 0);
+      loose(x0 + 50, y + 0.1, z0 + 18, { valuable: 2, machine: 2, military: 2 });
     } });
     // 地下エレベーター（脱出）
     building({ x0: 164, z0: 22, x1: 172, z1: 30, floors: 1, fh: 4, mat: 'concrete', color: '#a0a4a8', windows: false, doors: [{ side: 'w', c: 4, w: 2 }], floorMat: 'lab_floor' });

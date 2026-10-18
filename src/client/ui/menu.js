@@ -13,6 +13,7 @@ import { drawPortrait } from './portrait.js';
 import { buildHintsPage } from './hints.js';
 import { favoritesModal } from './favorites.js';
 import { sellModal } from './sellmodal.js';
+import { buildMarketPage } from './market.js';
 
 const OFFLINE_ONLY = !!import.meta.env?.VITE_OFFLINE_ONLY;
 
@@ -44,7 +45,7 @@ export class Menu {
     });
     this.unsub = PF.onProfileChange(() => this.updateTop());
     this.build();
-    this.timer = setInterval(() => { if (this.tab === 'hideout') this.refreshHideoutProgress(); }, 1000);
+    this.timer = setInterval(() => { if (this.tab === 'hideout') this.refreshHideoutProgress(); if (this.tab === 'market') this.marketTick?.(); }, 1000);
   }
   destroy() { clearInterval(this.timer); this.unsub(); this.inv.destroy(); this.root.innerHTML = ''; hideTooltip(); }
 
@@ -61,7 +62,7 @@ export class Menu {
   build() {
     const P = PF.profile();
     this.root.innerHTML = '';
-    const tabs = [['stash', '倉庫・装備'], ['traders', 'トレーダー'], ['hideout', 'ハイドアウト'], ['quests', 'タスク'], ['deploy', '出撃'], ['hints', 'ヒント'], ['records', '記録']];
+    const tabs = [['stash', '倉庫・装備'], ['traders', 'トレーダー'], ['market', 'オークション'], ['hideout', 'ハイドアウト'], ['quests', 'タスク'], ['deploy', '出撃'], ['hints', 'ヒント'], ['records', '記録']];
     this.topEls = {
       money: h('b', { class: 'money' }), level: h('b', {}), xp: h('i', {}), value: h('b', {}),
     };
@@ -79,7 +80,7 @@ export class Menu {
     this.root.append(h('div', { class: 'menu' }, top, this.content));
     this.updateTop();
     this.inv.mounts = [];
-    const page = { stash: () => this.pageStash(), traders: () => this.pageTraders(), hideout: () => this.pageHideout(), quests: () => this.pageQuests(), deploy: () => this.pageDeploy(), hints: () => buildHintsPage(), records: () => this.pageRecords() }[this.tab];
+    const page = { stash: () => this.pageStash(), traders: () => this.pageTraders(), market: () => { const mk = buildMarketPage(() => this.updateTop()); this.marketTick = mk.tick; return mk.el; }, hideout: () => this.pageHideout(), quests: () => this.pageQuests(), deploy: () => this.pageDeploy(), hints: () => buildHintsPage(), records: () => this.pageRecords() }[this.tab];
     this.content.append(page());
   }
 

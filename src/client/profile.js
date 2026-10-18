@@ -861,3 +861,106 @@ export function applyFavorite(fav) {
   changed();
   return r;
 }
+
+// ---------------------------------------------------------------- オークション
+// 素材や鍵などを割高で手に入れられる。入札（NPC の入札者と競る）か即決で買う。時間はリアルタイム
+export const MARKET_LOTS = 12;
+let marketPoolCache = null;
+function marketPool() {
+  if (marketPoolCache) return marketPoolCache;
+  const mats = new Set();
+  for (const r of RECIPES) for (const [id] of r.in) mats.add(id);
+  const pool = [];
+  for (const d of ITEM_LIST) {
+    if (!['barter', 'machine', 'intel', 'valuable', 'key'].includes(d.cat)) continue;
+    if (d.rarity >= 5) continue;
+    // クラフト素材・鍵とキーカードが出やすい
+    const w = (mats.has(d.id) ? 4 : 1) * (d.cat === 'key' ? 2 : 1) * [3, 2.5, 2, 1.4, 0.8][d.rarity];
+    pool.push({ d, w });
+  }
+  return (marketPoolCache = pool);
+}
+function newLot(now) {
+  const pool = marketPool();
+  let r = Math.random() * pool.reduce((s, p) => s + p.w, 0), d = pool[0].d;
+  for (const p of pool) { r -= p.w; if (r <= 0) { d = p.d; break; } }
+  const count = d.stack > 1 ? Math.max(1, Math.min(d.stack, Math.round(d.stack * (0.3 + Math.random() * 0.5)))) : 1;
+  const value = itemValue(createItem(d.id, { count }));
+  const dur = (6 + Math.random() * 24) * 60000;
+  const start = Math.round(value * (0.85 + Math.random() * 0.25));
+  const npcMax = Math.round(value * (1.1 + Math.random() * 0.7));
+  return {
+    id: (P.market.next = (P.market.next || 0) + 1), item: d.id, count, value, created: now, ends: now + dur,
+    start, npcMax, npcFloor: start, buyout: Math.round(Math.max(npcMax * 1.15, value * 1.8)), bid: 0, lead: null,
+  };
+}
+export function lotIncrement(lot) { return Math.max(100, Math.round(lot.value * 0.05)); }
+// 今の価格（あなたが最高入札者ならあなたの入札額、それ以外は他の入札者の額）
+export function lotPrice(lot, now = Date.now()) {
+  if (lot.lead === 'you') return lot.bid;
+  const t = Math.min(1, Math.max(0, (now - lot.created) / (lot.ends - lot.created)));
+  const curve = lot.start + (lot.npcMax - lot.start) * Math.pow(t, 1.6) * 0.85;
+  return Math.round(Math.min(lot.npcMax, Math.max(lot.npcFloor, curve)));
+}
+export function lotMinBid(lot, now = Date.now()) { return lotPrice(lot, now) + lotIncrement(lot); }
+function deliver(id, count) {
+  const it = createItem(id, { count });
+  if (autoInsert(P.stash, it)) return true;
+  (P.market.pending ||= []).push({ item: id, count });
+  return false;
+}
+// 期限が来た出品を精算し、足りない分を補充する。戻り値：落札した物の名前
+export function updateMarket(now = Date.now()) {
+  P.market ||= { lots: [], next: 0, pending: [] };
+  const M = P.market;
+  const won = [];
+  M.lots = M.lots.filter((lot) => {
+    if (now < lot.ends) return true;
+    if (lot.lead === 'you') { deliver(lot.item, lot.count); won.push(`${ITEMS[lot.item].name}${lot.count > 1 ? ' ×' + lot.count : ''}`); }
+    return false;
+  });
+  while (M.lots.length < MARKET_LOTS) M.lots.push(newLot(now));
+  if (won.length) changed(); else save();
+  return won;
+}
+export function placeBid(lotId, amount) {
+  const lot = P.market?.lots.find((l) => l.id === lotId);
+  if (!lot || Date.now() >= lot.ends) return { ok: false, msg: 'この出品は終了した' };
+  if (amount < lotMinBid(lot)) return { ok: false, msg: `最低入札額は ${lotMinBid(lot).toLocaleString()} C` };
+  const refund = lot.lead === 'you' ? lot.bid : 0;
+  if (P.money + refund < amount) return { ok: false, msg: 'クレジットが足りない' };
+  if (amount <= lot.npcMax) {
+    // 他の入札者がすぐに上回る
+    lot.npcFloor = Math.min(lot.npcMax, amount + lotIncrement(lot));
+    if (lot.lead === 'you') { P.money += lot.bid; lot.bid = 0; lot.lead = 'npc'; }
+    lot.lead = 'npc';
+    changed();
+    return { ok: false, outbid: true, msg: `他の入札者が ${lotPrice(lot).toLocaleString()} C で上回った` };
+  }
+  P.money += refund;
+  P.money -= amount;
+  lot.bid = amount; lot.lead = 'you';
+  // 締め切り間際の入札は少し延長（オークションらしく）
+  if (lot.ends - Date.now() < 30000) lot.ends = Date.now() + 30000;
+  changed();
+  return { ok: true, msg: `${amount.toLocaleString()} C で最高入札者になった（締め切りまでに抜かれなければ落札）` };
+}
+export function buyoutLot(lotId) {
+  const lot = P.market?.lots.find((l) => l.id === lotId);
+  if (!lot) return { ok: false, msg: 'この出品は終了した' };
+  const refund = lot.lead === 'you' ? lot.bid : 0;
+  if (P.money + refund < lot.buyout) return { ok: false, msg: 'クレジットが足りない' };
+  P.money += refund - lot.buyout;
+  P.market.lots = P.market.lots.filter((l) => l !== lot);
+  const inStash = deliver(lot.item, lot.count);
+  changed();
+  return { ok: true, msg: `${ITEMS[lot.item].name} を ${lot.buyout.toLocaleString()} C で即決購入した${inStash ? '' : '（倉庫が満杯なので受け取り待ちに入れた）'}` };
+}
+export function claimPending() {
+  const M = P.market;
+  if (!M?.pending?.length) return 0;
+  let n = 0;
+  M.pending = M.pending.filter((p) => { const it = createItem(p.item, { count: p.count }); if (autoInsert(P.stash, it)) { n++; return false; } return true; });
+  changed();
+  return n;
+}

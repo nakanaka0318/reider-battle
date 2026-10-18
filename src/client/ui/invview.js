@@ -27,7 +27,17 @@ export class InvView {
   destroy() { removeEventListener('keydown', this._onKey); this.mounts = []; }
   roots() { return this.o.roots(); }
 
-  refresh() { for (const m of this.mounts) if (m.el.isConnected) m.render(); this.mounts = this.mounts.filter((m) => m.el.isConnected || m.keep); }
+  refresh() {
+    // 描き直すと一瞬中身が空になってスクロール位置が先頭に戻るので、覚えておいて元に戻す
+    const saved = new Map();
+    for (const m of this.mounts) {
+      if (!m.el.isConnected) continue;
+      for (let p = m.el.parentElement; p; p = p.parentElement) if ((p.scrollTop || p.scrollLeft) && !saved.has(p)) saved.set(p, [p.scrollTop, p.scrollLeft]);
+    }
+    for (const m of this.mounts) if (m.el.isConnected) m.render();
+    for (const [p, [t, l]] of saved) { p.scrollTop = t; p.scrollLeft = l; }
+    this.mounts = this.mounts.filter((m) => m.el.isConnected || m.keep);
+  }
 
   mount(el, render) {
     const m = { el, render: () => { el.innerHTML = ''; render(el); } };
@@ -179,6 +189,7 @@ export class InvView {
           document.body.append(pre.rotBtn);
         }
         updateGhost();
+        startAutoScroll(pre);
       }
       pre.lastX = ev.clientX; pre.lastY = ev.clientY;
       updateHover(ev.clientX, ev.clientY);
@@ -199,6 +210,7 @@ export class InvView {
         }
         return;
       }
+      pre.done = true;
       const res = pre.hover;
       clearHover();
       pre.rotBtn?.remove();
@@ -323,4 +335,30 @@ function updateHover(x, y) {
     if (drag.shift && def.stack > 1 && drag.it.count > 1) target.split = Math.floor(drag.it.count / 2);
     drag.hover = { ok, ref, target };
   }
+}
+
+// ドラッグ中に指（カーソル）がスクロール枠の上下端に近づいたら、その枠を自動でスクロールする
+function scrollParentAt(x, y) {
+  for (let e = document.elementFromPoint(x, y); e && e !== document.body; e = e.parentElement) {
+    const st = getComputedStyle(e);
+    if (/(auto|scroll)/.test(st.overflowY) && e.scrollHeight > e.clientHeight + 2) return e;
+  }
+  return null;
+}
+function startAutoScroll(d) {
+  const EDGE = 56;
+  const step = () => {
+    if (d.done) return;
+    const sc = scrollParentAt(d.lastX, d.lastY);
+    if (sc) {
+      const r = sc.getBoundingClientRect();
+      const top = d.lastY - r.top, bottom = r.bottom - d.lastY;
+      let v = 0;
+      if (top < EDGE) v = -Math.ceil((EDGE - top) / 4);
+      else if (bottom < EDGE) v = Math.ceil((EDGE - bottom) / 4);
+      if (v) { sc.scrollTop += v; updateHover(d.lastX, d.lastY); }
+    }
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }

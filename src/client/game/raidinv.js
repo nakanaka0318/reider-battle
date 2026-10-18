@@ -56,6 +56,8 @@ export class RaidInventory {
   render() {
     if (!this.open) return;
     const g = this.g;
+    // 作り直すと各列のスクロールが先頭に戻るので、位置を覚えておいて戻す
+    const scrolls = [this.el.scrollTop, ...[...this.el.children].map((c) => [c.scrollTop, ...[...c.querySelectorAll('.panel')].map((p) => p.scrollTop)])];
     this.el.innerHTML = '';
     this.view.mounts = [];
     const S = g.selfState || {};
@@ -103,6 +105,13 @@ export class RaidInventory {
       } }, 'すべて取る');
       this.el.append(h('div', { class: 'side', style: { maxHeight: '100%', overflow: 'auto' } }, h('div', { class: 'panel' }, h('div', { class: 'panel-h' }, L.name, h('span', { class: 'sub' }, L.kind === 'body' ? '死体' : 'コンテナ'), takeAll), content)));
     }
+    this.el.scrollTop = scrolls[0];
+    [...this.el.children].forEach((c, i) => {
+      const s = scrolls[i + 1];
+      if (!s) return;
+      c.scrollTop = s[0];
+      [...c.querySelectorAll('.panel')].forEach((p, k) => { if (s[k + 1]) p.scrollTop = s[k + 1]; });
+    });
   }
 
   refresh() { if (this.open) this.render(); }

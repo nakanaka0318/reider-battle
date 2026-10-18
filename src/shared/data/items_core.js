@@ -419,10 +419,10 @@ key('key_armory', '武器庫の鍵', '武器庫', 'armory', { value: 160000, rar
 key('key_bunker', '指揮バンカーの鍵', 'バンカー', 'bunker', { value: 120000, rarity: 3, loot: ['military'], desc: '地下指揮バンカーの鍵。' });
 key('key_dock', '埠頭 倉庫の鍵', '埠頭倉庫', 'dock_ware', { value: 30000, rarity: 1, loot: ['industrial'], desc: '港の倉庫の鍵。' });
 key('key_tower', '無線塔 機器室の鍵', '無線塔', 'radio_room', { value: 48000, rarity: 2, loot: ['tech', 'industrial'], desc: '無線塔の機器室の鍵。' });
-key('card_blue', 'ブルー キーカード', 'BLUE', 'lab_blue', { card: true, value: 120000, rarity: 3, color: '#2a6ad0', loot: ['tech', 'office'], desc: '研究所の居住区画を開くキーカード。' });
+key('card_blue', 'ブルー キーカード', 'BLUE', 'lab_blue', { card: true, value: 120000, rarity: 3, color: '#2a6ad0', loot: ['tech', 'office'], desc: '研究所 1 階のブルー区画（居住）を開くキーカード。研究員の金庫・武器ケース・研究用ケースがある。' });
 key('card_red', 'レッド キーカード', 'RED', 'lab_red', { card: true, value: 380000, rarity: 4, color: '#d02a2a', loot: ['tech', 'valuable'], desc: '研究所の機密保管室を開くキーカード。' });
-key('card_black', 'ブラック キーカード', 'BLACK', 'lab_exit', { card: true, value: 260000, rarity: 4, color: '#1a1a1a', loot: ['tech', 'military'], desc: '研究所の地下エレベーター（脱出口）を起動するキーカード。' });
-key('card_green', 'グリーン キーカード', 'GREEN', 'lab_green', { card: true, value: 90000, rarity: 3, color: '#2ad04a', loot: ['tech', 'medical'], desc: '研究所の医療研究区画を開くキーカード。' });
+key('card_black', 'ブラック キーカード', 'BLACK', 'lab_exit', { card: true, value: 260000, rarity: 4, color: '#1a1a1a', loot: ['tech', 'military'], desc: '研究所 2 階のブラック区画（試作兵器庫）を開き、地下エレベーター（脱出口）も起動できるキーカード。' });
+key('card_green', 'グリーン キーカード', 'GREEN', 'lab_green', { card: true, value: 90000, rarity: 3, color: '#2ad04a', loot: ['tech', 'medical'], desc: '研究所 1 階のグリーン区画（医療研究）を開くキーカード。研究用ケース・医療ケース・金庫がある。' });
 
 // ---------------------------------------------------------------- 通貨
 add({ id: 'credits', name: 'クレジット', short: 'C', cat: 'money', sub: 'money', w: 1, h: 1, value: 1, rarity: 0, weight: 0, stack: 500000, icon: 'money', color: '#c8b060', loot: ['office', 'residential', 'valuable'], desc: 'この地域で流通している通貨。売却額そのまま。', valuePerUnit: true });
