@@ -756,6 +756,88 @@ export function buildMap(seed = 1337) {
     for (let i = 0; i < 4; i++) F.lamp(104 + i * 20, 44);
   }
 
+  // ------------------------------------------------------------ ARC 母艦の墜落跡（東・巨大ランドマーク）
+  {
+    const X0 = 54, X1 = 88, Z0 = 72, Z1 = 90, ZC = 81, D2 = 6, RY = 11.5;
+    const AM = 'arc_metal', HULL = '#3a4650', DARK = '#252c33', GLOW = '#38d0ff', RED = '#ff3a30';
+    M.pois.push({ id: 'mothership', name: 'ARC母艦 墜落跡', x: 71, z: 81, r: 30, tags: ['machine', 'tech'], tier: 4 });
+    M.machineZones.push({ x: 71, z: 81, r: 26, n: 5, heavy: 2 });
+    noTree(X0 - 8, Z0 - 14, X1 + 8, Z1 + 14);
+    // ---- 1 階（外壁の破孔から入る）
+    box(X0, 0, Z0, X1, 0.12, Z1, 'metal', DARK);
+    wall('x', Z0, X0, X1, 0, D2, 0.5, AM, [{ c: 62, w: 4, y0: 0, y1: 4.5 }, { c: 80, w: 3, y0: 0, y1: 3.4 }], HULL);
+    wall('x', Z1, X0, X1, 0, D2, 0.5, AM, [{ c: 68, w: 5, y0: 0, y1: 5 }, { c: 84, w: 2.6, y0: 0, y1: 3 }], HULL);
+    wall('z', X0, Z0, Z1, 0, D2, 0.5, AM, [], HULL);
+    wall('z', X1, Z0, Z1, 0, D2, 0.5, AM, [{ c: ZC, w: 2.4, y0: 0, y1: 3 }], HULL);
+    // 中央の大ホール（z 77..85）と南北 4 つずつの貨物室
+    const bays = [58.25, 66.75, 75.25, 83.75];
+    wall('x', 77, X0, X1, 0, D2 - 0.25, 0.3, AM, bays.map((c) => ({ c, w: 1.8, y0: 0, y1: 2.6 })), DARK);
+    wall('x', 85, X0, X1, 0, D2 - 0.25, 0.3, AM, bays.map((c) => ({ c, w: 1.8, y0: 0, y1: 2.6 })), DARK);
+    for (const x of [62.5, 71, 79.5]) { wall('z', x, Z0, 77, 0, D2 - 0.25, 0.3, AM, [], DARK); wall('z', x, 85, Z1, 0, D2 - 0.25, 0.3, AM, [], DARK); }
+    cont('arc_cache', 57, 0.12, 73.6, 0); cont('crate', 60.5, 0.12, 73.9, 1);
+    cont('weapon_box', 66.75, 0.12, 73.9, 0);
+    cont('arc_cache', 75.2, 0.12, 73.6, 0);
+    cont('toolbox', 86, 0.12, 74, 0); cont('crate', 82, 0.12, 73.9, 0);
+    cont('lab_case', 58, 0.12, 88.6, 0); cont('med_case', 66.5, 0.12, 88.8, 0);
+    cont('arc_cache', 76, 0.12, 88.6, 0); cont('crate', 84, 0.12, 88.8, 0);
+    loose(72, 0.2, 79, { machine: 3, tech: 1 });
+    loose(80, 0.2, 83.5, { machine: 2, military: 1 });
+    // ---- 1 階 → 2 階の階段（ホールの西側）
+    const st1 = { x: 58, z: ZC, axis: 'x', dir: 1, w: 2 };
+    stairs(st1, 0, D2);
+    // ---- 2 階
+    slabWithHole(X0, Z0, X1, Z1, D2 - 0.25, D2 + 0.02, stairFootprint(st1, D2), 'metal', DARK);
+    const ports = (a0, a1) => { const o = []; for (let c = a0 + 3; c < a1 - 2; c += 4.5) o.push({ c, w: 1.6, y0: D2 + 1.4, y1: D2 + 2.4 }); return o; };
+    wall('x', Z0, X0, X1, D2, RY, 0.5, AM, [...ports(X0, 70), { c: 75, w: 7, y0: D2 + 0.6, y1: D2 + 4.2 }, ...ports(80, X1)], HULL);
+    wall('x', Z1, X0, X1, D2, RY, 0.5, AM, ports(X0, X1), HULL);
+    wall('z', X0, Z0, Z1, D2, RY, 0.5, AM, ports(Z0, Z1), HULL);
+    wall('z', X1, Z0, Z1, D2, RY, 0.5, AM, ports(Z0, Z1), HULL);
+    // 動力コア室（中央）。光るコアの柱を囲む
+    wall('x', 77, 68, 78, D2, RY, 0.3, AM, [], '#2a5a6a');
+    wall('x', 85, 68, 78, D2, RY, 0.3, AM, [], '#2a5a6a');
+    wall('z', 68, 77, 85, D2, RY, 0.3, AM, [{ c: ZC, w: 2.2, y0: D2, y1: D2 + 2.6 }], '#2a5a6a');
+    wall('z', 78, 77, 85, D2, RY, 0.3, AM, [{ c: ZC, w: 2.2, y0: D2, y1: D2 + 2.6 }], '#2a5a6a');
+    box(72.3, D2, 80.3, 73.7, RY, 81.7, AM, GLOW);
+    box(71.6, D2, 79.6, 74.4, D2 + 0.5, 82.4, AM, DARK);
+    cont('arc_cache', 68.9, D2, 77.9, 0); cont('arc_cache', 77.1, D2, 84.1, 0);
+    cont('safe', 77.1, D2, 77.9, 3); cont('lab_case', 68.9, D2, 84.1, 0);
+    loose(73, D2 + 0.1, 83.8, { valuable: 3, machine: 3, tech: 2 });
+    cont('lab_case', 56, D2, 73.6, 0); cont('arc_cache', 56.5, D2, 88.4, 0);
+    cont('weapon_box', 84, D2, 73.8, 0); cont('crate', 64, D2, 88.6, 0);
+    // ---- 2 階 → 屋上の階段（コア室の東の出口からそのまま上る）
+    const st2 = { x: 79.6, z: ZC, axis: 'x', dir: 1, w: 2 };
+    stairs(st2, D2, RY - D2);
+    // ---- 屋上（艦橋と高さ 46 m のアンテナ。遠くからでも見える）
+    slabWithHole(X0, Z0, X1, Z1, RY - 0.25, RY + 0.05, stairFootprint(st2, RY - D2), AM, HULL);
+    wall('x', Z0, X0, X1, RY, RY + 0.9, 0.4, AM, [], HULL);
+    wall('x', Z1, X0, X1, RY, RY + 0.9, 0.4, AM, [], HULL);
+    wall('z', X0, Z0, Z1, RY, RY + 0.9, 0.4, AM, [], HULL);
+    wall('z', X1, Z0, Z1, RY, RY + 0.9, 0.4, AM, [], HULL);
+    box(62, RY, 77.5, 70, RY + 5, 84.5, AM, HULL);
+    box(63, RY + 5, 78.5, 69, RY + 6.2, 83.5, AM, DARK);
+    box(61.9, RY + 2.6, 77.4, 70.1, RY + 3.1, 84.6, AM, GLOW);
+    box(65.4, RY + 6.2, 80.4, 66.6, 46, 81.6, 'metal', '#2a2f35');
+    for (const y of [24, 32, 39]) { box(63, y, 80.8, 69, y + 0.4, 81.2, 'metal', '#2a2f35'); box(65.8, y + 2, 78.5, 66.2, y + 2.4, 83.5, 'metal', '#2a2f35'); }
+    box(65.1, 46, 80.1, 66.9, 47.2, 81.9, AM, RED);
+    M.lamps.push({ x: 66, y: 45.5, z: 81 });
+    cont('arc_cache', 80, RY + 0.05, 74.6, 0);
+    loose(58, RY + 0.15, 81, { machine: 2, valuable: 1 });
+    // ---- 外装：光る継ぎ目・艦首・主翼・エンジン・残骸
+    for (const z of [Z0 - 0.3, Z1 + 0.3]) { box(X0, D2 - 0.2, z - 0.06, X1, D2 + 0.1, z + 0.06, AM, GLOW); box(X0, RY - 0.4, z - 0.06, X1, RY - 0.1, z + 0.06, AM, GLOW); }
+    box(49.5, 0, 75, X0, 4.6, 87, AM, HULL);
+    box(47.2, 0, 77.6, 49.5, 3, 84.4, AM, DARK);
+    box(49.4, 2.2, 79.5, 49.6, 3.2, 82.5, AM, GLOW);
+    box(60, 3.6, 62, 69, 4.2, Z0, AM, HULL); box(71.5, 3.6, 63, 82, 4.2, Z0, AM, HULL);
+    box(61, 1.6, 58.5, 68, 2.2, 62, AM, DARK); box(72.5, 1.2, 59.5, 80, 1.8, 63, AM, DARK);
+    box(58, 4.4, Z1, 72, 5.0, 96, AM, HULL);
+    box(76, 0, 94, 86, 1.0, 101, AM, DARK);
+    box(X1, 0.8, 74, 94, 6, 79.5, AM, DARK); box(X1, 0.8, 82.5, 94, 6, 88, AM, DARK);
+    box(94, 1.6, 74.6, 94.3, 5.2, 78.9, AM, GLOW); box(94, 1.6, 83.1, 94.3, 5.2, 87.4, AM, GLOW);
+    for (const [x, z, w, d, hh] of [[60, 66, 2.4, 1.6, 1.2], [66.5, 64.5, 1.6, 1.2, 0.8], [85, 66, 3, 2, 1.4], [90.5, 69, 1.6, 2.2, 1.0], [51, 94, 2.2, 1.4, 1.1], [59, 99, 1.8, 2.4, 0.9], [88, 98, 2.6, 1.8, 1.3], [92, 92, 1.4, 1.4, 0.7], [50.5, 69, 1.8, 1.6, 1.0]]) box(x - w / 2, 0, z - d / 2, x + w / 2, hh, z + d / 2, AM, DARK);
+    loose(86, 0.2, 63, { machine: 2 });
+    loose(64, 0.2, 97, { machine: 2, tech: 1 });
+  }
+
   // ------------------------------------------------------------ ガソリンスタンド・モーテル（南西）
   {
     M.pois.push({ id: 'gas', name: 'ガソリンスタンド', x: -132, z: 54, r: 22, tags: ['residential', 'industrial'], tier: 1 });
