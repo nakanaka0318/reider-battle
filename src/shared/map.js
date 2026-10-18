@@ -678,13 +678,13 @@ export function buildMap(seed = 1337) {
     F.fence('z', lx1, lz0, lz1, 3.2);
     // 本館 2F
     const x0 = 110, z0 = 4, x1 = 162, z1 = 36, fh = 4;
-    building({ x0, z0, x1, z1, floors: 2, fh, mat: 'concrete', color: '#c8ccd0', roofColor: '#7a7e82', winSpacing: 3.4, doors: [{ side: 'n', c: 26, w: 3, door: { open: true } }, { side: 'w', c: 16, w: 1.6, door: {} }], stairs: { x: x0 + 2, z: z0 + 2.2, axis: 'x', dir: 1, w: 1.6 }, floorMat: 'lab_floor', inner() {
+    building({ x0, z0, x1, z1, floors: 2, fh, mat: 'concrete', color: '#c8ccd0', roofColor: '#7a7e82', winSpacing: 3.4, doors: [{ side: 'n', c: 26, w: 3, door: { open: true } }, { side: 'w', c: 7, w: 1.6, door: {} }], stairs: { x: x0 + 2, z: z0 + 2.2, axis: 'x', dir: 1, w: 1.6 }, floorMat: 'lab_floor', inner() {
       // 1F：ロビー／ブルー（居住）／グリーン（医療）
-      wall('x', z0 + 12, x0, x1, 0, fh, 0.25, 'plaster', [{ c: x0 + 26, w: 2.4, y0: 0, y1: 2.6 }], '#e0e4e8');
-      wall('z', x0 + 18, z0 + 12, z1, 0, fh, 0.25, 'plaster', [{ c: z0 + 20, w: 1.4, y0: 0, y1: 2.4 }], '#e0e4e8');
-      wall('z', x0 + 34, z0 + 12, z1, 0, fh, 0.25, 'plaster', [{ c: z0 + 20, w: 1.4, y0: 0, y1: 2.4 }], '#e0e4e8');
-      door('z', x0 + 18, z0 + 20, 0, 1.4, 2.4, { id: 'lab_blue', locked: 'lab_blue', name: 'ブルー区画（居住）', color: '#2a6ad0' });
-      door('z', x0 + 34, z0 + 20, 0, 1.4, 2.4, { id: 'lab_green', locked: 'lab_green', name: 'グリーン区画（医療）', color: '#2ad04a' });
+      wall('x', z0 + 12, x0, x1, 0, fh, 0.25, 'plaster', [{ c: x0 + 9, w: 1.4, y0: 0, y1: 2.4 }, { c: x0 + 26, w: 1.4, y0: 0, y1: 2.4 }, { c: x0 + 43, w: 2.4, y0: 0, y1: 2.6 }], '#e0e4e8');
+      wall('z', x0 + 18, z0 + 12, z1, 0, fh, 0.25, 'plaster', [], '#e0e4e8');
+      wall('z', x0 + 34, z0 + 12, z1, 0, fh, 0.25, 'plaster', [], '#e0e4e8');
+      door('x', x0 + 9, z0 + 12, 0, 1.4, 2.4, { id: 'lab_blue', locked: 'lab_blue', name: 'ブルー区画（居住）', color: '#2a6ad0' });
+      door('x', x0 + 26, z0 + 12, 0, 1.4, 2.4, { id: 'lab_green', locked: 'lab_green', name: 'グリーン区画（医療）', color: '#2ad04a' });
       // ロビー
       F.counter(x0 + 22, z0 + 6, x0 + 30, z0 + 7, 0.12, { office: 2, tech: 1 });
       cont('pc', x0 + 24, 1.07, z0 + 6.5, 2);
@@ -719,7 +719,7 @@ export function buildMap(seed = 1337) {
       const y = fh;
       wall('x', z0 + 12, x0 + 6, x1, y, y + fh, 0.25, 'plaster', [{ c: x0 + 14, w: 1.6, y0: y, y1: y + 2.4 }, { c: x0 + 38, w: 1.6, y0: y, y1: y + 2.4 }], '#e0e4e8');
       wall('z', x0 + 26, z0 + 12, z1, y, y + fh, 0.25, 'concrete', [{ c: z0 + 24, w: 1.4, y0: y, y1: y + 2.4 }], '#a0a4a8');
-      wall('z', x0 + 30, z0 + 12, z1, y, y + fh, 0.25, 'concrete', [], '#a0a4a8');
+      wall('z', x0 + 30, z0 + 12, z1, y, y + fh, 0.25, 'concrete', [{ c: z0 + 29, w: 1.6, y0: y, y1: y + 2.4 }], '#a0a4a8');
       door('z', x0 + 26, z0 + 24, y, 1.4, 2.4, { id: 'lab_red', locked: 'lab_red', name: 'レッド区画（機密保管室）', color: '#d02a2a' });
       // 研究室（西）
       for (let k = 0; k < 3; k++) F.table(x0 + 5 + k * 6.5, z0 + 24, y, 3, 1.2, { tech: 3, medical: 1, machine: 1 });
