@@ -106,8 +106,8 @@ weapon('pkp', 'PKP ペチェネグ', 'PKP', 'lmg', '762x54r', { rpm: 650, mag: 1
 weapon('m249', 'M-249 SAW', 'M249', 'lmg', '556x45', { rpm: 800, mag: 100, modes: ['auto'], rv: 0.9, rh: 0.5, ergo: 35, value: 260000, rarity: 4, weight: 7.5, defaultAmmo: 'a556_m855', reload: 5.0, desc: '5.56mmベルト給弾の軽機関銃。' });
 
 // ARC 兵器（機械パーツから作る）
-weapon('arc_pulse', 'ARCパルスライフル', 'パルス', 'rifle', 'arc', { rpm: 520, mag: 24, modes: ['semi', 'auto'], rv: 0.5, rh: 0.25, ergo: 70, value: 420000, rarity: 5, weight: 3.8, defaultAmmo: 'arc_cell', loot: ['machine'], color: '#1e6e8a', desc: 'ARC機械の動力コアを流用した試作エネルギー兵器。弾道が直進し、装甲に強い。', slots: ['sight', 'grip', 'tactical'] });
-weapon('arc_lance', 'ARCランス', 'ランス', 'dmr', 'arc', { rpm: 150, mag: 8, rv: 1.2, rh: 0.3, ergo: 55, spread: 0.02, zoom: 1.5, value: 520000, rarity: 5, weight: 4.5, defaultAmmo: 'arc_cell', loot: ['machine'], color: '#7b2fa0', dmgMul: 2.2, desc: 'センチネルの主砲を小型化した高出力ビーム兵器。', slots: ['sight', 'tactical'] });
+weapon('arc_pulse', 'ARCパルスライフル', 'パルス', 'rifle', 'arc', { rpm: 720, mag: 36, modes: ['semi', 'auto'], rv: 0.4, rh: 0.2, ergo: 75, value: 420000, rarity: 5, weight: 3.8, defaultAmmo: 'arc_cell', loot: ['machine'], color: '#1e6e8a', desc: 'ARC機械の動力コアを流用した試作エネルギー兵器。高い連射力と低反動。エネルギー弾は防具の効果を 3 割弱め、ARC 機械には 1.5 倍のダメージを与える。', slots: ['sight', 'grip', 'tactical'] });
+weapon('arc_lance', 'ARCランス', 'ランス', 'dmr', 'arc', { rpm: 240, mag: 12, rv: 1.1, rh: 0.3, ergo: 55, spread: 0.02, zoom: 1.5, value: 520000, rarity: 5, weight: 4.5, defaultAmmo: 'arc_cell', loot: ['machine'], color: '#7b2fa0', dmgMul: 3.2, desc: 'センチネルの主砲を小型化した高出力ビーム兵器。1 発で重装の敵も倒せる威力。エネルギー弾は防具の効果を 3 割弱め、ARC 機械には 1.5 倍のダメージを与える。', slots: ['sight', 'tactical'] });
 
 // ---------------------------------------------------------------- 弾薬
 function ammo(id, name, short, cal, o) {
@@ -171,8 +171,8 @@ ammo('a939_sp5', '9x39mm SP-5', 'SP-5', '9x39', { dmg: 71, pen: 44, value: 420, 
 ammo('a939_sp6', '9x39mm SP-6', 'SP-6', '9x39', { dmg: 58, pen: 46, value: 560, rarity: 2, ad: 0.6 });
 ammo('a939_pab', '9x39mm PAB-9', 'PAB-9', '9x39', { dmg: 62, pen: 52, value: 900, rarity: 3, ad: 0.62 });
 ammo('a939_bp', '9x39mm BP', 'BP', '9x39', { dmg: 60, pen: 55, value: 1400, rarity: 4, ad: 0.65, color: '#2a5c7a' });
-ammo('arc_cell', 'ARCエネルギーセル', 'セル', 'arc', { dmg: 62, pen: 52, value: 900, rarity: 3, ad: 0.9, loot: ['machine'], color: '#2fb6d8', tracer: true, stack: 48 });
-ammo('arc_cell_oc', '過充電ARCセル', '過充電', 'arc', { dmg: 88, pen: 64, value: 2400, rarity: 4, ad: 1.0, loot: ['machine'], color: '#c03bd8', tracer: true, stack: 48 });
+ammo('arc_cell', 'ARCエネルギーセル', 'セル', 'arc', { dmg: 72, pen: 62, value: 900, rarity: 3, ad: 0.9, loot: ['machine'], color: '#2fb6d8', tracer: true, stack: 48 });
+ammo('arc_cell_oc', '過充電ARCセル', '過充電', 'arc', { dmg: 92, pen: 80, value: 2400, rarity: 4, ad: 1.0, loot: ['machine'], color: '#c03bd8', tracer: true, stack: 48 });
 
 // ---------------------------------------------------------------- 武器MOD
 function mod(id, name, short, slot, o) {

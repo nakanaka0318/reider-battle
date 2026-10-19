@@ -439,8 +439,9 @@ export class Raid {
     if (t.kind === 'machine') {
       const M = MACHINES[t.mtype];
       const cls = M.armor[zone] ?? 2;
-      let dmg = ammo.damage * (opts.dmgMul || 1);
-      const p = opts.explosive ? 1 : Math.max(0.03, Math.min(0.98, 0.5 + (ammo.pen - cls * 10) / 18));
+      const arcK = ammo.caliber === 'arc' ? 1.5 : 1; // ARC エネルギー弾は同じ ARC の装甲に強い
+      let dmg = ammo.damage * (opts.dmgMul || 1) * arcK;
+      const p = opts.explosive ? 1 : Math.max(0.03, Math.min(0.98, 0.5 + (ammo.pen - cls * 10 * (arcK > 1 ? 0.7 : 1)) / 18));
       let blocked = false;
       if (this.rng() > p) { dmg *= cls >= 4 ? 0.04 : 0.1; blocked = true; }
       if (zone === 'core') dmg *= 1.6;

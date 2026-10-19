@@ -25,6 +25,8 @@ export function itemTooltip(item, extra = {}) {
     row('エルゴノミクス', Math.round(st.ergo));
     if (st.zoom > 1.5) row('照準倍率', st.zoom + 'x');
     if (st.suppressed) row('消音', 'あり');
+    if (def.weapon.dmgMul && def.weapon.dmgMul !== 1) row('威力倍率', '×' + def.weapon.dmgMul);
+    if (def.weapon.caliber === 'arc') row('エネルギー弾', '防具 -30%・ARC 機械に ×1.5');
     const mods = Object.entries(item.mods || {}).filter(([, m]) => m);
     if (mods.length) row('MOD', mods.map(([, m]) => ITEMS[m.id].short).join(', '));
   }

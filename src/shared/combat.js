@@ -90,7 +90,7 @@ export function damageHuman(a, zone, ammo, rng, opts = {}) {
     for (const { it, def } of armorFor(a.inv, zone)) {
       const ar = def.armor;
       const durFrac = it.dur / ar.dur;
-      const prot = ar.cls * 10;
+      const prot = ar.cls * 10 * (ammo.caliber === 'arc' ? 0.7 : 1); // ARC エネルギー弾は防具が効きにくい
       const effProt = prot * (0.55 + 0.45 * durFrac);
       // 跳弾（ヘルメット）
       if (zone === 'head' && ar.ricochet && rng() < ar.ricochet * 0.3 && pen < prot + 10) {
